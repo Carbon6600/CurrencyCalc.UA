@@ -244,6 +244,13 @@
             padding: 10px;
             font-size: 16px;
         }
+        
+        .error-message {
+            color: #ff5555;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -266,7 +273,7 @@
                     </div>
                 </div>
                 <div class="last-updated" id="last-updated"></div>
-                <button class="refresh-btn" onclick="loadExchangeRates()">Оновити курси</button>
+                <button class="refresh-btn" onclick="loadPrivatbankRates()">Оновити курси</button>
             </div>
             
             <div class="keypad">
@@ -300,62 +307,63 @@
             EUR: '€'
         };
 
+        // Статичні курси для Monobank та Raiffeisen
+        const staticRates = {
+            monobank: {
+                USD: { buy: 37.25, sell: 38.35 },
+                EUR: { buy: 40.15, sell: 41.25 }
+            },
+            raiffeisen: {
+                USD: { buy: 37.15, sell: 38.45 },
+                EUR: { buy: 40.05, sell: 41.35 }
+            }
+        };
+
         let currentDisplay = '0';
         let currentCurrency = 'UAH';
         let exchangeRates = {
             privatbank: { USD: {}, EUR: {} },
-            monobank: { USD: { buy: 0, sell: 0 }, EUR: { buy: 0, sell: 0 } },
-            raiffeisen: { USD: { buy: 0, sell: 0 }, EUR: { buy: 0, sell: 0 } }
+            ...staticRates
         };
+        let privatbankAvailable = false;
 
-        async function loadExchangeRates() {
+        async function loadPrivatbankRates() {
             try {
-                document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів...</div>';
+                document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів ПриватБанк...</div>';
                 
-                // Отримуємо курси ПриватБанку
-                const privatResponse = await fetch('https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=5');
-                const privatData = await privatResponse.json();
+                const response = await fetch('https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5');
+                const data = await response.json();
                 
-                privatData.forEach(rate => {
+                data.forEach(rate => {
                     if (rate.ccy === 'USD') {
-                        exchangeRates.privatbank.USD.buy = parseFloat(rate.buy);
-                        exchangeRates.privatbank.USD.sell = parseFloat(rate.sale);
+                        exchangeRates.privatbank.USD = {
+                            buy: parseFloat(rate.buy),
+                            sell: parseFloat(rate.sale)
+                        };
                     } else if (rate.ccy === 'EUR') {
-                        exchangeRates.privatbank.EUR.buy = parseFloat(rate.buy);
-                        exchangeRates.privatbank.EUR.sell = parseFloat(rate.sale);
+                        exchangeRates.privatbank.EUR = {
+                            buy: parseFloat(rate.buy),
+                            sell: parseFloat(rate.sale)
+                        };
                     }
                 });
 
-                // Симулюємо курси інших банків
-                exchangeRates.monobank = {
-                    USD: { 
-                        buy: (exchangeRates.privatbank.USD.buy * 0.995).toFixed(2), 
-                        sell: (exchangeRates.privatbank.USD.sell * 1.005).toFixed(2) 
-                    },
-                    EUR: { 
-                        buy: (exchangeRates.privatbank.EUR.buy * 0.995).toFixed(2), 
-                        sell: (exchangeRates.privatbank.EUR.sell * 1.005).toFixed(2) 
-                    }
-                };
-                
-                exchangeRates.raiffeisen = {
-                    USD: { 
-                        buy: (exchangeRates.privatbank.USD.buy * 0.99).toFixed(2), 
-                        sell: (exchangeRates.privatbank.USD.sell * 1.01).toFixed(2) 
-                    },
-                    EUR: { 
-                        buy: (exchangeRates.privatbank.EUR.buy * 0.99).toFixed(2), 
-                        sell: (exchangeRates.privatbank.EUR.sell * 1.01).toFixed(2) 
-                    }
-                };
-
+                privatbankAvailable = true;
                 calculateRates();
                 
             } catch (error) {
-                console.error('Помилка завантаження курсів:', error);
-                document.getElementById('results').innerHTML = 
-                    '<div style="color: #ff5555; text-align: center; padding: 20px;">Помилка завантаження курсів</div>';
+                console.error('Помилка завантаження курсів ПриватБанк:', error);
+                privatbankAvailable = false;
+                calculateRates();
             }
+        }
+
+        function initStaticRates() {
+            exchangeRates.privatbank = {
+                USD: { buy: 37.40, sell: 38.10 },
+                EUR: { buy: 40.20, sell: 40.95 }
+            };
+            calculateRates();
         }
 
         function updateDisplay() {
@@ -412,7 +420,7 @@
         function setCurrency(currency) {
             if (currentCurrency !== currency) {
                 currentCurrency = currency;
-                loadExchangeRates();
+                calculateRates();
             }
             updateDisplay();
         }
@@ -433,156 +441,107 @@
                 }
                 
                 const resultsDiv = document.getElementById('results');
+                let resultsHTML = `<div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>`;
                 
-                if (currentCurrency === 'UAH') {
-                    resultsDiv.innerHTML = `
-                        <div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>
-                        <div class="bank-card">
-                            <div class="bank-header">
-                                <div class="bank-logo monobank">M</div>
-                                <div>Monobank</div>
-                            </div>
-                            <div class="rate-row">
-                                <span>USD купівля:</span>
-                                <span class="rate-value">${(amount / exchangeRates.monobank.USD.buy).toFixed(2)} $</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>USD продаж:</span>
-                                <span class="rate-value">${(amount / exchangeRates.monobank.USD.sell).toFixed(2)} $</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>EUR купівля:</span>
-                                <span class="rate-value">${(amount / exchangeRates.monobank.EUR.buy).toFixed(2)} €</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>EUR продаж:</span>
-                                <span class="rate-value">${(amount / exchangeRates.monobank.EUR.sell).toFixed(2)} €</span>
-                            </div>
+                // Monobank (статичний)
+                resultsHTML += `
+                    <div class="bank-card">
+                        <div class="bank-header">
+                            <div class="bank-logo monobank">M</div>
+                            <div>Monobank</div>
                         </div>
+                        ${generateRateRows('monobank', amount)}
+                    </div>`;
+                
+                // ПриватБанк (API або статичний)
+                if (privatbankAvailable) {
+                    resultsHTML += `
                         <div class="bank-card">
                             <div class="bank-header">
                                 <div class="bank-logo privatbank">П</div>
                                 <div>ПриватБанк</div>
                             </div>
-                            <div class="rate-row">
-                                <span>USD купівля:</span>
-                                <span class="rate-value">${(amount / exchangeRates.privatbank.USD.buy).toFixed(2)} $</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>USD продаж:</span>
-                                <span class="rate-value">${(amount / exchangeRates.privatbank.USD.sell).toFixed(2)} $</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>EUR купівля:</span>
-                                <span class="rate-value">${(amount / exchangeRates.privatbank.EUR.buy).toFixed(2)} €</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>EUR продаж:</span>
-                                <span class="rate-value">${(amount / exchangeRates.privatbank.EUR.sell).toFixed(2)} €</span>
-                            </div>
-                        </div>
-                        <div class="bank-card">
-                            <div class="bank-header">
-                                <div class="bank-logo raiffeisen">Р</div>
-                                <div>Райффайзен</div>
-                            </div>
-                            <div class="rate-row">
-                                <span>USD купівля:</span>
-                                <span class="rate-value">${(amount / exchangeRates.raiffeisen.USD.buy).toFixed(2)} $</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>USD продаж:</span>
-                                <span class="rate-value">${(amount / exchangeRates.raiffeisen.USD.sell).toFixed(2)} $</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>EUR купівля:</span>
-                                <span class="rate-value">${(amount / exchangeRates.raiffeisen.EUR.buy).toFixed(2)} €</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>EUR продаж:</span>
-                                <span class="rate-value">${(amount / exchangeRates.raiffeisen.EUR.sell).toFixed(2)} €</span>
-                            </div>
-                        </div>
-                    `;
+                            ${generateRateRows('privatbank', amount)}
+                        </div>`;
                 } else {
-                    const currencyKey = currentCurrency;
-                    const otherCurrencyKey = currentCurrency === 'USD' ? 'EUR' : 'USD';
-                    
-                    resultsDiv.innerHTML = `
-                        <div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>
-                        <div class="bank-card">
-                            <div class="bank-header">
-                                <div class="bank-logo monobank">M</div>
-                                <div>Monobank</div>
-                            </div>
-                            <div class="rate-row">
-                                <span>UAH купівля:</span>
-                                <span class="rate-value">${(amount * exchangeRates.monobank[currencyKey].buy).toFixed(2)} ₴</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>UAH продаж:</span>
-                                <span class="rate-value">${(amount * exchangeRates.monobank[currencyKey].sell).toFixed(2)} ₴</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>${otherCurrencyKey}:</span>
-                                <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
-                                    (exchangeRates.monobank.EUR.buy / exchangeRates.monobank.USD.sell) : 
-                                    (exchangeRates.monobank.USD.buy / exchangeRates.monobank.EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
-                            </div>
-                        </div>
+                    resultsHTML += `
                         <div class="bank-card">
                             <div class="bank-header">
                                 <div class="bank-logo privatbank">П</div>
-                                <div>ПриватБанк</div>
+                                <div>ПриватБанк (статичні курси)</div>
                             </div>
-                            <div class="rate-row">
-                                <span>UAH купівля:</span>
-                                <span class="rate-value">${(amount * exchangeRates.privatbank[currencyKey].buy).toFixed(2)} ₴</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>UAH продаж:</span>
-                                <span class="rate-value">${(amount * exchangeRates.privatbank[currencyKey].sell).toFixed(2)} ₴</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>${otherCurrencyKey}:</span>
-                                <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
-                                    (exchangeRates.privatbank.EUR.buy / exchangeRates.privatbank.USD.sell) : 
-                                    (exchangeRates.privatbank.USD.buy / exchangeRates.privatbank.EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
-                            </div>
-                        </div>
-                        <div class="bank-card">
-                            <div class="bank-header">
-                                <div class="bank-logo raiffeisen">Р</div>
-                                <div>Райффайзен</div>
-                            </div>
-                            <div class="rate-row">
-                                <span>UAH купівля:</span>
-                                <span class="rate-value">${(amount * exchangeRates.raiffeisen[currencyKey].buy).toFixed(2)} ₴</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>UAH продаж:</span>
-                                <span class="rate-value">${(amount * exchangeRates.raiffeisen[currencyKey].sell).toFixed(2)} ₴</span>
-                            </div>
-                            <div class="rate-row">
-                                <span>${otherCurrencyKey}:</span>
-                                <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
-                                    (exchangeRates.raiffeisen.EUR.buy / exchangeRates.raiffeisen.USD.sell) : 
-                                    (exchangeRates.raiffeisen.USD.buy / exchangeRates.raiffeisen.EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
-                            </div>
-                        </div>
-                    `;
+                            ${generateRateRows('privatbank', amount)}
+                        </div>`;
                 }
                 
+                // Raiffeisen (статичний)
+                resultsHTML += `
+                    <div class="bank-card">
+                        <div class="bank-header">
+                            <div class="bank-logo raiffeisen">Р</div>
+                            <div>Райффайзен</div>
+                        </div>
+                        ${generateRateRows('raiffeisen', amount)}
+                    </div>`;
+                
+                resultsDiv.innerHTML = resultsHTML;
                 document.getElementById('last-updated').textContent = `Оновлено: ${new Date().toLocaleTimeString()}`;
                 document.getElementById('results-container').scrollTo(0, 0);
+                
             } catch (error) {
-                document.getElementById('results').innerHTML = `<div style="color: #ff5555; text-align: center; padding: 20px;">${error.message}</div>`;
+                document.getElementById('results').innerHTML = `<div class="error-message">${error.message}</div>`;
+            }
+        }
+        
+        function generateRateRows(bank, amount) {
+            if (currentCurrency === 'UAH') {
+                return `
+                    <div class="rate-row">
+                        <span>USD купівля:</span>
+                        <span class="rate-value">${(amount / exchangeRates[bank].USD.buy).toFixed(2)} $</span>
+                    </div>
+                    <div class="rate-row">
+                        <span>USD продаж:</span>
+                        <span class="rate-value">${(amount / exchangeRates[bank].USD.sell).toFixed(2)} $</span>
+                    </div>
+                    <div class="rate-row">
+                        <span>EUR купівля:</span>
+                        <span class="rate-value">${(amount / exchangeRates[bank].EUR.buy).toFixed(2)} €</span>
+                    </div>
+                    <div class="rate-row">
+                        <span>EUR продаж:</span>
+                        <span class="rate-value">${(amount / exchangeRates[bank].EUR.sell).toFixed(2)} €</span>
+                    </div>`;
+            } else {
+                const currencyKey = currentCurrency;
+                const otherCurrencyKey = currentCurrency === 'USD' ? 'EUR' : 'USD';
+                
+                return `
+                    <div class="rate-row">
+                        <span>UAH купівля:</span>
+                        <span class="rate-value">${(amount * exchangeRates[bank][currencyKey].buy).toFixed(2)} ₴</span>
+                    </div>
+                    <div class="rate-row">
+                        <span>UAH продаж:</span>
+                        <span class="rate-value">${(amount * exchangeRates[bank][currencyKey].sell).toFixed(2)} ₴</span>
+                    </div>
+                    <div class="rate-row">
+                        <span>${otherCurrencyKey}:</span>
+                        <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
+                            (exchangeRates[bank].EUR.buy / exchangeRates[bank].USD.sell) : 
+                            (exchangeRates[bank].USD.buy / exchangeRates[bank].EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
+                    </div>`;
             }
         }
 
         // Ініціалізація
         document.addEventListener('DOMContentLoaded', function() {
-            loadExchangeRates();
+            loadPrivatbankRates();
+            setTimeout(() => {
+                if (!privatbankAvailable) {
+                    initStaticRates();
+                }
+            }, 3000);
             updateDisplay();
         });
     </script>
