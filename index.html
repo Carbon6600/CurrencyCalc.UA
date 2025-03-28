@@ -167,6 +167,12 @@
             border-left: 4px solid #e74c3c;
         }
         
+        .bank-card.error {
+            background: #2a2a2a;
+            border-left: 4px solid #ff5555;
+            opacity: 0.7;
+        }
+        
         .bank-header {
             display: flex;
             align-items: center;
@@ -203,6 +209,11 @@
         .raiffeisen-logo { 
             background-color: rgba(255,255,255,0.2);
             border: 2px solid white;
+        }
+        
+        .error-logo {
+            background-color: rgba(255,85,85,0.3);
+            border: 2px solid #ff5555;
         }
         
         .rate-row {
@@ -285,12 +296,27 @@
         }
         
         .error-message {
-            color: #ffdddd;
+            color: #ff5555;
             text-align: center;
-            padding: 10px;
-            font-size: 14px;
-            background-color: rgba(255,0,0,0.2);
-            border-radius: 8px;
+            padding: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .static-data-message {
+            color: #ff9500;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        .update-info {
+            color: #aaa;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 5px;
         }
         
         @keyframes pulse {
@@ -324,7 +350,7 @@
                     </div>
                 </div>
                 <div class="last-updated" id="last-updated"></div>
-                <button class="refresh-btn" onclick="loadPrivatbankRates()">Оновити курси</button>
+                <button class="refresh-btn" onclick="loadExchangeRates()">Оновити курси</button>
             </div>
             
             <div class="keypad">
@@ -358,30 +384,58 @@
             EUR: '€'
         };
 
-        const staticRates = {
-            monobank: {
-                USD: { buy: 37.25, sell: 38.35 },
-                EUR: { buy: 40.15, sell: 41.25 }
-            },
-            raiffeisen: {
-                USD: { buy: 37.15, sell: 38.45 },
-                EUR: { buy: 40.05, sell: 41.35 }
-            }
+        const currencyCodes = {
+            USD: 840,
+            EUR: 978,
+            UAH: 980
         };
 
         let currentDisplay = '1';
         let currentCurrency = 'USD';
         let exchangeRates = {
             privatbank: { USD: {}, EUR: {} },
-            ...staticRates
+            monobank: { USD: {}, EUR: {} },
+            raiffeisen: { USD: { buy: 37.15, sell: 38.45 }, EUR: { buy: 40.05, sell: 41.35 } }
         };
         let privatbankAvailable = false;
+        let monobankAvailable = false;
         let isFirstInput = true;
+        let lastMonobankUpdate = 0;
+        const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 хвилин в мілісекундах
+
+        async function loadExchangeRates() {
+            try {
+                document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів...</div>';
+                
+                // Завжди завантажуємо ПриватБанк
+                await loadPrivatbankRates();
+                
+                // Перевіряємо, чи можна оновлювати Monobank
+                const now = Date.now();
+                if (now - lastMonobankUpdate > MONOBANK_UPDATE_INTERVAL || lastMonobankUpdate === 0) {
+                    await loadMonobankRates();
+                    lastMonobankUpdate = now;
+                } else {
+                    console.log('Monobank: оновлюємо не частіше 1 разу на 5 хвилин');
+                    // Використовуємо попередні дані Monobank
+                    monobankAvailable = exchangeRates.monobank.USD.buy !== undefined;
+                }
+                
+                calculateRates();
+                
+            } catch (error) {
+                console.error('Помилка завантаження курсів:', error);
+                document.getElementById('results').innerHTML = `
+                    <div class="error-message">
+                        Не вдалося завантажити актуальні курси. Використовуються статичні дані.
+                    </div>
+                `;
+                initStaticRates();
+            }
+        }
 
         async function loadPrivatbankRates() {
             try {
-                document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів ПриватБанк...</div>';
-                
                 const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
                 const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5';
                 
@@ -391,9 +445,7 @@
                     }
                 });
                 
-                if (!response.ok) {
-                    throw new Error('Не вдалося отримати курси');
-                }
+                if (!response.ok) throw new Error('Не вдалося отримати курси ПриватБанк');
                 
                 const data = await response.json();
                 
@@ -412,17 +464,56 @@
                 });
 
                 privatbankAvailable = true;
-                calculateRates();
                 
             } catch (error) {
                 console.error('Помилка завантаження курсів ПриватБанк:', error);
-                document.getElementById('results').innerHTML = `
-                    <div class="error-message">
-                        Не вдалося завантажити актуальні курси. Використовуються статичні дані.
-                    </div>
-                `;
                 privatbankAvailable = false;
-                initStaticRates();
+            }
+        }
+
+        async function loadMonobankRates() {
+            try {
+                const response = await fetch('https://api.monobank.ua/bank/currency');
+                
+                if (!response.ok) throw new Error('Не вдалося отримати курси Monobank');
+                if (response.status === 429) {
+                    console.log('Monobank: занадто багато запитів');
+                    throw new Error('Досягнуто ліміт запитів до Monobank');
+                }
+                
+                const data = await response.json();
+                
+                // Шукаємо USD/UAH
+                const usdRate = data.find(rate => 
+                    rate.currencyCodeA === currencyCodes.USD && 
+                    rate.currencyCodeB === currencyCodes.UAH
+                );
+                
+                if (usdRate) {
+                    exchangeRates.monobank.USD = {
+                        buy: usdRate.rateBuy,
+                        sell: usdRate.rateSell
+                    };
+                }
+                
+                // Шукаємо EUR/UAH
+                const eurRate = data.find(rate => 
+                    rate.currencyCodeA === currencyCodes.EUR && 
+                    rate.currencyCodeB === currencyCodes.UAH
+                );
+                
+                if (eurRate) {
+                    exchangeRates.monobank.EUR = {
+                        buy: eurRate.rateBuy,
+                        sell: eurRate.rateSell
+                    };
+                }
+                
+                monobankAvailable = true;
+                
+            } catch (error) {
+                console.error('Помилка завантаження курсів Monobank:', error);
+                monobankAvailable = false;
             }
         }
 
@@ -430,6 +521,10 @@
             exchangeRates.privatbank = {
                 USD: { buy: 37.40, sell: 38.10 },
                 EUR: { buy: 40.20, sell: 40.95 }
+            };
+            exchangeRates.monobank = {
+                USD: { buy: 37.25, sell: 38.35 },
+                EUR: { buy: 40.15, sell: 41.25 }
             };
             calculateRates();
         }
@@ -520,29 +615,37 @@
                 const resultsDiv = document.getElementById('results');
                 let resultsHTML = `<div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>`;
                 
-                resultsHTML += `
-                    <div class="bank-card monobank-card">
-                        <div class="bank-header">
-                            <div class="bank-logo monobank-logo">M</div>
-                            <div>Monobank</div>
-                        </div>
-                        ${generateRateRows('monobank', amount)}
-                    </div>`;
+                // Monobank
+                const monobankTimeLeft = Math.max(0, MONOBANK_UPDATE_INTERVAL - (Date.now() - lastMonobankUpdate));
+                const monobankUpdateMsg = monobankTimeLeft > 0 ? 
+                    `Оновлення через ${Math.ceil(monobankTimeLeft/60000)} хв` : 'Доступно оновлення';
                 
                 resultsHTML += `
-                    <div class="bank-card privatbank-card">
+                    <div class="bank-card monobank-card ${!monobankAvailable ? 'error' : ''}">
                         <div class="bank-header">
-                            <div class="bank-logo privatbank-logo">П</div>
-                            <div>ПриватБанк${privatbankAvailable ? '' : ' (статичні курси)'}</div>
+                            <div class="bank-logo ${!monobankAvailable ? 'error-logo' : 'monobank-logo'}">M</div>
+                            <div>Monobank ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
-                        ${generateRateRows('privatbank', amount)}
+                        ${monobankAvailable ? generateRateRows('monobank', amount) : generateErrorRows()}
+                        <div class="update-info">${monobankUpdateMsg}</div>
                     </div>`;
                 
+                // ПриватБанк
+                resultsHTML += `
+                    <div class="bank-card privatbank-card ${!privatbankAvailable ? 'error' : ''}">
+                        <div class="bank-header">
+                            <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : 'privatbank-logo'}">П</div>
+                            <div>ПриватБанк ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                        </div>
+                        ${privatbankAvailable ? generateRateRows('privatbank', amount) : generateErrorRows()}
+                    </div>`;
+                
+                // Raiffeisen (завжди доступний як статичний)
                 resultsHTML += `
                     <div class="bank-card raiffeisen-card">
                         <div class="bank-header">
                             <div class="bank-logo raiffeisen-logo">Р</div>
-                            <div>Райффайзен</div>
+                            <div>Райффайзен <span class="static-data-message">(статика)</span></div>
                         </div>
                         ${generateRateRows('raiffeisen', amount)}
                     </div>`;
@@ -596,12 +699,19 @@
                     </div>`;
             }
         }
+        
+        function generateErrorRows() {
+            return `
+                <div class="error-message">Не вдалося завантажити актуальні курси</div>
+                <div class="static-data-message">Використовуються статичні дані</div>
+            `;
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
             currentDisplay = '1';
             currentCurrency = 'USD';
             updateDisplay();
-            loadPrivatbankRates();
+            loadExchangeRates();
         });
     </script>
 </body>
