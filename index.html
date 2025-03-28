@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Курс валют українських банків</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .phone {
+            width: 340px;
+            background: linear-gradient(145deg, #3a3a3a, #2d2d2d);
+            border-radius: 30px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            color: white;
+        }
+        
+        .screen {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            height: 280px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .input-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .input-display {
+            font-size: 32px;
+            text-align: right;
+            padding: 12px;
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            flex-grow: 1;
+            margin-right: 15px;
+            font-weight: bold;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .currency-symbol {
+            font-size: 28px;
+            font-weight: bold;
+            width: 60px;
+            text-align: center;
+        }
+        
+        .currency-selector {
+            display: flex;
+            margin-bottom: 15px;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        
+        .currency-btn {
+            padding: 10px 0;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            flex-grow: 1;
+            text-align: center;
+            background-color: #444;
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .currency-btn.active {
+            background-color: #ff9500;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 149, 0, 0.3);
+        }
+        
+        .results-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding-right: 5px;
+        }
+        
+        /* Стилі для скроллбару */
+        .results-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .results-container::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 3px;
+        }
+        
+        .results-container::-webkit-scrollbar-thumb {
+            background: #ff9500;
+            border-radius: 3px;
+        }
+        
+        .amount-title {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #ccc;
+            font-weight: bold;
+        }
+        
+        .bank-card {
+            background-color: #2a2a2a;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+        }
+        
+        .bank-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .bank-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .monobank { background-color: #6f2c91; }
+        .privatbank { background-color: #2e8b57; }
+        .raiffeisen { background-color: #ff6600; }
+        
+        .rate-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        
+        .rate-value {
+            font-weight: bold;
+            color: #ff9500;
+        }
+        
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        
+        button {
+            padding: 16px 0;
+            font-size: 22px;
+            border: none;
+            border-radius: 12px;
+            background-color: #444;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background-color: #555;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.operator {
+            background-color: #ff9500;
+        }
+        
+        button.clear {
+            background-color: #a5a5a5;
+            color: black;
+        }
+        
+        button.plus-minus {
+            background-color: #555;
+        }
+        
+        .last-updated {
+            font-size: 12px;
+            color: #aaa;
+            text-align: center;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone">
+        <div class="screen">
+            <div class="input-container">
+                <div class="input-display" id="display">0</div>
+                <div class="currency-symbol" id="currency-symbol">₴</div>
+            </div>
+            <div class="currency-selector">
+                <button class="currency-btn active" onclick="setCurrency('UAH')">ГРН</button>
+                <button class="currency-btn" onclick="setCurrency('USD')">USD</button>
+                <button class="currency-btn" onclick="setCurrency('EUR')">EUR</button>
+            </div>
+            <div class="results-container" id="results-container">
+                <div class="results" id="results">
+                    <div class="amount-title">Введіть суму для конвертації</div>
+                </div>
+            </div>
+            <div class="last-updated" id="last-updated"></div>
+        </div>
+        
+        <div class="keypad">
+            <button class="clear" onclick="clearDisplay()">C</button>
+            <button onclick="appendToDisplay('+')" class="operator">+</button>
+            <button onclick="appendToDisplay('-')" class="operator">-</button>
+            <button onclick="appendToDisplay('/')" class="operator">/</button>
+            <button onclick="appendToDisplay('7')">7</button>
+            <button onclick="appendToDisplay('8')">8</button>
+            <button onclick="appendToDisplay('9')">9</button>
+            <button onclick="appendToDisplay('*')" class="operator">*</button>
+            <button onclick="appendToDisplay('4')">4</button>
+            <button onclick="appendToDisplay('5')">5</button>
+            <button onclick="appendToDisplay('6')">6</button>
+            <button onclick="plusMinus()" class="plus-minus">+/-</button>
+            <button onclick="appendToDisplay('1')">1</button>
+            <button onclick="appendToDisplay('2')">2</button>
+            <button onclick="appendToDisplay('3')">3</button>
+            <button onclick="backspace()">←</button>
+            <button onclick="appendToDisplay('0')">0</button>
+            <button onclick="appendToDisplay('.')">.</button>
+            <button onclick="calculateRates()" class="operator">=</button>
+        </div>
+    </div>
+
+    <script>
+        // Поточні курси валют (прикладні, можна замінити на реальні через API)
+        const exchangeRates = {
+            monobank: {
+                USD: { buy: 37.5, sell: 38.2 },
+                EUR: { buy: 40.1, sell: 41.0 }
+            },
+            privatbank: {
+                USD: { buy: 37.6, sell: 38.1 },
+                EUR: { buy: 40.2, sell: 40.9 }
+            },
+            raiffeisen: {
+                USD: { buy: 37.4, sell: 38.3 },
+                EUR: { buy: 40.0, sell: 41.1 }
+            }
+        };
+
+        const currencySymbols = {
+            UAH: '₴',
+            USD: '$',
+            EUR: '€'
+        };
+
+        let currentDisplay = '0';
+        let currentCurrency = 'UAH';
+        let updateTimeout = null;
+        
+        function updateDisplay() {
+            document.getElementById('display').textContent = currentDisplay;
+            document.getElementById('currency-symbol').textContent = currencySymbols[currentCurrency];
+            updateCurrencyButtons();
+            
+            if (updateTimeout) {
+                clearTimeout(updateTimeout);
+            }
+            
+            updateTimeout = setTimeout(calculateRates, 300);
+        }
+        
+        function updateCurrencyButtons() {
+            const buttons = document.querySelectorAll('.currency-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent === currentCurrency || 
+                    (btn.textContent === 'ГРН' && currentCurrency === 'UAH')) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+        
+        function appendToDisplay(value) {
+            if (currentDisplay === '0' && value !== '.' && !['+','-','*','/'].includes(value)) {
+                currentDisplay = value;
+            } else {
+                currentDisplay += value;
+            }
+            updateDisplay();
+        }
+        
+        function backspace() {
+            if (currentDisplay.length > 1) {
+                currentDisplay = currentDisplay.slice(0, -1);
+            } else {
+                currentDisplay = '0';
+            }
+            updateDisplay();
+        }
+        
+        function clearDisplay() {
+            currentDisplay = '0';
+            updateDisplay();
+        }
+        
+        function plusMinus() {
+            if (currentDisplay.startsWith('-')) {
+                currentDisplay = currentDisplay.substring(1);
+            } else if (currentDisplay !== '0') {
+                currentDisplay = '-' + currentDisplay;
+            }
+            updateDisplay();
+        }
+        
+        function setCurrency(currency) {
+            currentCurrency = currency;
+            updateDisplay();
+        }
+        
+        function calculateRates() {
+            try {
+                let amount;
+                try {
+                    amount = parseFloat(eval(currentDisplay));
+                } catch {
+                    amount = parseFloat(currentDisplay);
+                }
+                
+                if (isNaN(amount)) {
+                    throw new Error('Невірне число');
+                }
+                
+                const resultsDiv = document.getElementById('results');
+                
+                if (currentCurrency === 'UAH') {
+                    // Конвертація з гривні в USD/EUR
+                    resultsDiv.innerHTML = `
+                        <div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>
+                        <div class="bank-card">
+                            <div class="bank-header">
+                                <div class="bank-logo monobank">M</div>
+                                <div>Monobank</div>
+                            </div>
+                            <div class="rate-row">
+                                <span>USD (купівля):</span>
+                                <span class="rate-value">${(amount / exchangeRates.monobank.USD.buy).toFixed(2)} $</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>USD (продаж):</span>
+                                <span class="rate-value">${(amount / exchangeRates.monobank.USD.sell).toFixed(2)} $</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>EUR (купівля):</span>
+                                <span class="rate-value">${(amount / exchangeRates.monobank.EUR.buy).toFixed(2)} €</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>EUR (продаж):</span>
+                                <span class="rate-value">${(amount / exchangeRates.monobank.EUR.sell).toFixed(2)} €</span>
+                            </div>
+                        </div>
+                        <div class="bank-card">
+                            <div class="bank-header">
+                                <div class="bank-logo privatbank">П</div>
+                                <div>ПриватБанк</div>
+                            </div>
+                            <div class="rate-row">
+                                <span>USD (купівля):</span>
+                                <span class="rate-value">${(amount / exchangeRates.privatbank.USD.buy).toFixed(2)} $</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>USD (продаж):</span>
+                                <span class="rate-value">${(amount / exchangeRates.privatbank.USD.sell).toFixed(2)} $</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>EUR (купівля):</span>
+                                <span class="rate-value">${(amount / exchangeRates.privatbank.EUR.buy).toFixed(2)} €</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>EUR (продаж):</span>
+                                <span class="rate-value">${(amount / exchangeRates.privatbank.EUR.sell).toFixed(2)} €</span>
+                            </div>
+                        </div>
+                        <div class="bank-card">
+                            <div class="bank-header">
+                                <div class="bank-logo raiffeisen">Р</div>
+                                <div>Райффайзен</div>
+                            </div>
+                            <div class="rate-row">
+                                <span>USD (купівля):</span>
+                                <span class="rate-value">${(amount / exchangeRates.raiffeisen.USD.buy).toFixed(2)} $</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>USD (продаж):</span>
+                                <span class="rate-value">${(amount / exchangeRates.raiffeisen.USD.sell).toFixed(2)} $</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>EUR (купівля):</span>
+                                <span class="rate-value">${(amount / exchangeRates.raiffeisen.EUR.buy).toFixed(2)} €</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>EUR (продаж):</span>
+                                <span class="rate-value">${(amount / exchangeRates.raiffeisen.EUR.sell).toFixed(2)} €</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Конвертація з USD/EUR в гривню та інші валюти
+                    const currencyKey = currentCurrency;
+                    const otherCurrencyKey = currentCurrency === 'USD' ? 'EUR' : 'USD';
+                    
+                    resultsDiv.innerHTML = `
+                        <div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>
+                        <div class="bank-card">
+                            <div class="bank-header">
+                                <div class="bank-logo monobank">M</div>
+                                <div>Monobank</div>
+                            </div>
+                            <div class="rate-row">
+                                <span>UAH (купівля):</span>
+                                <span class="rate-value">${(amount * exchangeRates.monobank[currencyKey].buy).toFixed(2)} ₴</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>UAH (продаж):</span>
+                                <span class="rate-value">${(amount * exchangeRates.monobank[currencyKey].sell).toFixed(2)} ₴</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>${otherCurrencyKey}:</span>
+                                <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
+                                    (exchangeRates.monobank.EUR.buy / exchangeRates.monobank.USD.sell) : 
+                                    (exchangeRates.monobank.USD.buy / exchangeRates.monobank.EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
+                            </div>
+                        </div>
+                        <div class="bank-card">
+                            <div class="bank-header">
+                                <div class="bank-logo privatbank">П</div>
+                                <div>ПриватБанк</div>
+                            </div>
+                            <div class="rate-row">
+                                <span>UAH (купівля):</span>
+                                <span class="rate-value">${(amount * exchangeRates.privatbank[currencyKey].buy).toFixed(2)} ₴</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>UAH (продаж):</span>
+                                <span class="rate-value">${(amount * exchangeRates.privatbank[currencyKey].sell).toFixed(2)} ₴</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>${otherCurrencyKey}:</span>
+                                <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
+                                    (exchangeRates.privatbank.EUR.buy / exchangeRates.privatbank.USD.sell) : 
+                                    (exchangeRates.privatbank.USD.buy / exchangeRates.privatbank.EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
+                            </div>
+                        </div>
+                        <div class="bank-card">
+                            <div class="bank-header">
+                                <div class="bank-logo raiffeisen">Р</div>
+                                <div>Райффайзен</div>
+                            </div>
+                            <div class="rate-row">
+                                <span>UAH (купівля):</span>
+                                <span class="rate-value">${(amount * exchangeRates.raiffeisen[currencyKey].buy).toFixed(2)} ₴</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>UAH (продаж):</span>
+                                <span class="rate-value">${(amount * exchangeRates.raiffeisen[currencyKey].sell).toFixed(2)} ₴</span>
+                            </div>
+                            <div class="rate-row">
+                                <span>${otherCurrencyKey}:</span>
+                                <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
+                                    (exchangeRates.raiffeisen.EUR.buy / exchangeRates.raiffeisen.USD.sell) : 
+                                    (exchangeRates.raiffeisen.USD.buy / exchangeRates.raiffeisen.EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('last-updated').textContent = `Оновлено: ${new Date().toLocaleTimeString()}`;
+                
+                // Прокручуємо до верху при новому розрахунку
+                document.getElementById('results-container').scrollTop = 0;
+            } catch (error) {
+                document.getElementById('results').innerHTML = `<div style="color: #ff5555; text-align: center; margin-top: 20px;">${error.message}</div>`;
+            }
+        }
+
+        // Ініціалізація
+        updateDisplay();
+    </script>
+</body>
+</html>
