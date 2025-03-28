@@ -43,7 +43,7 @@ open index.html
 ▪️ Швидких валютних розрахунків  
 
 ---
-**GitHub:** [github.com/Carbon6600/CurrencyCalc.UA](https://github.com/)  
+**GitHub:** [[[github.com/Carbon6600/CurrencyCalc.UA](http://carbon6600.github.io/CurrencyCalc.UA/)]((http://carbon6600.github.io/CurrencyCalc.UA/)](https://carbon6600.github.io/CurrencyCalc.UA/))  
 **Ліцензія:** MIT  
 
 *"Знайте актуальні курси - приймайте обґрунтовані фінансові рішення!"* 💰
