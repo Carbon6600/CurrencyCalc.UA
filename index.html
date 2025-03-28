@@ -331,7 +331,20 @@
             try {
                 document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів ПриватБанк...</div>';
                 
-                const response = await fetch('https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5');
+                // Використовуємо CORS проксі
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5';
+                
+                const response = await fetch(proxyUrl + targetUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Не вдалося отримати курси');
+                }
+                
                 const data = await response.json();
                 
                 data.forEach(rate => {
@@ -353,8 +366,13 @@
                 
             } catch (error) {
                 console.error('Помилка завантаження курсів ПриватБанк:', error);
+                document.getElementById('results').innerHTML = `
+                    <div class="error-message">
+                        Не вдалося завантажити актуальні курси. Використовуються статичні дані.
+                    </div>
+                `;
                 privatbankAvailable = false;
-                calculateRates();
+                initStaticRates();
             }
         }
 
@@ -454,25 +472,14 @@
                     </div>`;
                 
                 // ПриватБанк (API або статичний)
-                if (privatbankAvailable) {
-                    resultsHTML += `
-                        <div class="bank-card">
-                            <div class="bank-header">
-                                <div class="bank-logo privatbank">П</div>
-                                <div>ПриватБанк</div>
-                            </div>
-                            ${generateRateRows('privatbank', amount)}
-                        </div>`;
-                } else {
-                    resultsHTML += `
-                        <div class="bank-card">
-                            <div class="bank-header">
-                                <div class="bank-logo privatbank">П</div>
-                                <div>ПриватБанк (статичні курси)</div>
-                            </div>
-                            ${generateRateRows('privatbank', amount)}
-                        </div>`;
-                }
+                resultsHTML += `
+                    <div class="bank-card">
+                        <div class="bank-header">
+                            <div class="bank-logo privatbank">П</div>
+                            <div>ПриватБанк${privatbankAvailable ? '' : ' (статичні курси)'}</div>
+                        </div>
+                        ${generateRateRows('privatbank', amount)}
+                    </div>`;
                 
                 // Raiffeisen (статичний)
                 resultsHTML += `
@@ -537,11 +544,6 @@
         // Ініціалізація
         document.addEventListener('DOMContentLoaded', function() {
             loadPrivatbankRates();
-            setTimeout(() => {
-                if (!privatbankAvailable) {
-                    initStaticRates();
-                }
-            }, 3000);
             updateDisplay();
         });
     </script>
