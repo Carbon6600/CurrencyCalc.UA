@@ -136,14 +136,35 @@
         }
         
         .bank-card {
-            background-color: #2a2a2a;
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 15px;
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
             scroll-snap-align: start;
-            height: 280px;
+            height: 180px;
             box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s;
+        }
+        
+        .bank-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .monobank-card {
+            background: linear-gradient(135deg, #6f2c91 0%, #8e44ad 100%);
+            border-left: 4px solid #f39c12;
+        }
+        
+        .privatbank-card {
+            background: linear-gradient(135deg, #2e8b57 0%, #27ae60 100%);
+            border-left: 4px solid #f1c40f;
+        }
+        
+        .raiffeisen-card {
+            background: linear-gradient(135deg, #ff6600 0%, #e67e22 100%);
+            border-left: 4px solid #e74c3c;
         }
         
         .bank-header {
@@ -165,24 +186,38 @@
             margin-right: 12px;
             font-size: 14px;
             font-weight: bold;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
-        .monobank { background-color: #6f2c91; }
-        .privatbank { background-color: #2e8b57; }
-        .raiffeisen { background-color: #ff6600; }
+        .monobank-logo { 
+            background-color: rgba(255,255,255,0.2);
+            border: 2px solid white;
+        }
+        
+        .privatbank-logo { 
+            background-color: rgba(255,255,255,0.2);
+            border: 2px solid white;
+        }
+        
+        .raiffeisen-logo { 
+            background-color: rgba(255,255,255,0.2);
+            border: 2px solid white;
+        }
         
         .rate-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 12px;
-            font-size: 16px;
-            padding: 8px 0;
-            border-bottom: 1px solid #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
         .rate-value {
             font-weight: bold;
-            color: #ff9500;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         
         .keypad {
@@ -239,17 +274,33 @@
         }
         
         .refresh-btn {
-            background-color: #2e8b57;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
             margin-top: 10px;
             padding: 10px;
             font-size: 16px;
+            border: none;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .error-message {
-            color: #ff5555;
+            color: #ffdddd;
             text-align: center;
             padding: 10px;
             font-size: 14px;
+            background-color: rgba(255,0,0,0.2);
+            border-radius: 8px;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        
+        .loading {
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
@@ -259,12 +310,12 @@
         <div class="phone">
             <div class="screen">
                 <div class="input-container">
-                    <div class="input-display" id="display">0</div>
-                    <div class="currency-symbol" id="currency-symbol">₴</div>
+                    <div class="input-display" id="display">1</div>
+                    <div class="currency-symbol" id="currency-symbol">$</div>
                 </div>
                 <div class="currency-selector">
-                    <button class="currency-btn active" onclick="setCurrency('UAH')">ГРН</button>
-                    <button class="currency-btn" onclick="setCurrency('USD')">USD</button>
+                    <button class="currency-btn" onclick="setCurrency('UAH')">ГРН</button>
+                    <button class="currency-btn active" onclick="setCurrency('USD')">USD</button>
                     <button class="currency-btn" onclick="setCurrency('EUR')">EUR</button>
                 </div>
                 <div class="results-container" id="results-container">
@@ -295,7 +346,7 @@
                 <button onclick="backspace()">←</button>
                 <button onclick="appendToDisplay('0')">0</button>
                 <button onclick="appendToDisplay('.')">.</button>
-                <button onclick="calculateRates()" class="operator">=</button>
+                <button onclick="calculate()" class="operator">=</button>
             </div>
         </div>
     </div>
@@ -307,7 +358,6 @@
             EUR: '€'
         };
 
-        // Статичні курси для Monobank та Raiffeisen
         const staticRates = {
             monobank: {
                 USD: { buy: 37.25, sell: 38.35 },
@@ -319,19 +369,19 @@
             }
         };
 
-        let currentDisplay = '0';
-        let currentCurrency = 'UAH';
+        let currentDisplay = '1';
+        let currentCurrency = 'USD';
         let exchangeRates = {
             privatbank: { USD: {}, EUR: {} },
             ...staticRates
         };
         let privatbankAvailable = false;
+        let isFirstInput = true;
 
         async function loadPrivatbankRates() {
             try {
                 document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів ПриватБанк...</div>';
                 
-                // Використовуємо CORS проксі
                 const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
                 const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5';
                 
@@ -402,28 +452,34 @@
         }
         
         function appendToDisplay(value) {
-            if (currentDisplay === '0' && value !== '.' && !['+','-','*','/'].includes(value)) {
+            if (isFirstInput && !['+','-','*','/'].includes(value)) {
                 currentDisplay = value;
+                isFirstInput = false;
             } else if (['+','-','*','/'].includes(value) && ['+','-','*','/'].includes(currentDisplay.slice(-1))) {
                 currentDisplay = currentDisplay.slice(0, -1) + value;
             } else {
                 currentDisplay += value;
             }
             updateDisplay();
+            calculateRates();
         }
         
         function backspace() {
             if (currentDisplay.length > 1) {
                 currentDisplay = currentDisplay.slice(0, -1);
             } else {
-                currentDisplay = '0';
+                currentDisplay = '1';
+                isFirstInput = true;
             }
             updateDisplay();
+            calculateRates();
         }
         
         function clearDisplay() {
-            currentDisplay = '0';
+            currentDisplay = '1';
+            isFirstInput = true;
             updateDisplay();
+            calculateRates();
         }
         
         function plusMinus() {
@@ -433,27 +489,30 @@
                 currentDisplay = '-' + currentDisplay;
             }
             updateDisplay();
+            calculateRates();
         }
         
         function setCurrency(currency) {
             if (currentCurrency !== currency) {
                 currentCurrency = currency;
+                updateDisplay();
                 calculateRates();
             }
-            updateDisplay();
+        }
+        
+        function calculate() {
+            try {
+                currentDisplay = eval(currentDisplay).toString();
+                updateDisplay();
+                calculateRates();
+            } catch (error) {
+                document.getElementById('results').innerHTML = `<div class="error-message">Невірний вираз</div>`;
+            }
         }
         
         function calculateRates() {
             try {
-                let amount;
-                try {
-                    amount = eval(currentDisplay);
-                    currentDisplay = amount.toString();
-                    updateDisplay();
-                } catch {
-                    amount = parseFloat(currentDisplay);
-                }
-                
+                let amount = parseFloat(currentDisplay);
                 if (isNaN(amount)) {
                     throw new Error('Невірне число');
                 }
@@ -461,31 +520,28 @@
                 const resultsDiv = document.getElementById('results');
                 let resultsHTML = `<div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>`;
                 
-                // Monobank (статичний)
                 resultsHTML += `
-                    <div class="bank-card">
+                    <div class="bank-card monobank-card">
                         <div class="bank-header">
-                            <div class="bank-logo monobank">M</div>
+                            <div class="bank-logo monobank-logo">M</div>
                             <div>Monobank</div>
                         </div>
                         ${generateRateRows('monobank', amount)}
                     </div>`;
                 
-                // ПриватБанк (API або статичний)
                 resultsHTML += `
-                    <div class="bank-card">
+                    <div class="bank-card privatbank-card">
                         <div class="bank-header">
-                            <div class="bank-logo privatbank">П</div>
+                            <div class="bank-logo privatbank-logo">П</div>
                             <div>ПриватБанк${privatbankAvailable ? '' : ' (статичні курси)'}</div>
                         </div>
                         ${generateRateRows('privatbank', amount)}
                     </div>`;
                 
-                // Raiffeisen (статичний)
                 resultsHTML += `
-                    <div class="bank-card">
+                    <div class="bank-card raiffeisen-card">
                         <div class="bank-header">
-                            <div class="bank-logo raiffeisen">Р</div>
+                            <div class="bank-logo raiffeisen-logo">Р</div>
                             <div>Райффайзен</div>
                         </div>
                         ${generateRateRows('raiffeisen', amount)}
@@ -496,7 +552,7 @@
                 document.getElementById('results-container').scrollTo(0, 0);
                 
             } catch (error) {
-                document.getElementById('results').innerHTML = `<div class="error-message">${error.message}</div>`;
+                console.error('Помилка розрахунку:', error);
             }
         }
         
@@ -541,10 +597,11 @@
             }
         }
 
-        // Ініціалізація
         document.addEventListener('DOMContentLoaded', function() {
-            loadPrivatbankRates();
+            currentDisplay = '1';
+            currentCurrency = 'USD';
             updateDisplay();
+            loadPrivatbankRates();
         });
     </script>
 </body>
