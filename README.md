@@ -1,5 +1,7 @@
 # **CurrencyCalc.UA**  
 **💵 Валютний калькулятор українських банків у стилі смартфона**  
+[![Demo Screenshot](https://github.com/user-attachments/assets/a869c5d1-e2a5-43e4-8fcf-3da39dbcb0c1)](https://carbon6600.github.io/CurrencyCalc.UA)  
+
 
 ### **🌐 Опис проекту**  
 **CurrencyCalc.UA** - це сучасний веб-додаток для миттєвого порівняння курсів валют у топових українських банках. Інтерфейс у формі смартфона з інтуїтивним калькулятором дозволяє:  
@@ -43,7 +45,8 @@ open index.html
 ▪️ Швидких валютних розрахунків  
 
 ---
-**GitHub:** [[[github.com/Carbon6600/CurrencyCalc.UA](http://carbon6600.github.io/CurrencyCalc.UA/)]((http://carbon6600.github.io/CurrencyCalc.UA/)](https://carbon6600.github.io/CurrencyCalc.UA/))  
+**GitHub:** [github.com/Carbon6600/CurrencyCalc.UA](https://github.com/Carbon6600/CurrencyCalc.UA)  
+**Live Demo:** [carbon6600.github.io/CurrencyCalc.UA](https://carbon6600.github.io/CurrencyCalc.UA)  
 **Ліцензія:** MIT  
 
-*"Знайте актуальні курси - приймайте обґрунтовані фінансові рішення!"* 💰
+*"Знайте актуальні курси - приймайте обґрунтовані фінансові рішення!"* 💰  
