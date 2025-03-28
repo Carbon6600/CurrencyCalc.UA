@@ -237,6 +237,13 @@
             padding: 20px;
             color: #ff9500;
         }
+        
+        .refresh-btn {
+            background-color: #2e8b57;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -259,6 +266,7 @@
                     </div>
                 </div>
                 <div class="last-updated" id="last-updated"></div>
+                <button class="refresh-btn" onclick="loadExchangeRates()">Оновити курси</button>
             </div>
             
             <div class="keypad">
@@ -286,7 +294,6 @@
     </div>
 
     <script>
-        // Глобальні змінні
         const currencySymbols = {
             UAH: '₴',
             USD: '$',
@@ -295,21 +302,20 @@
 
         let currentDisplay = '0';
         let currentCurrency = 'UAH';
-        let updateTimeout = null;
         let exchangeRates = {
             privatbank: { USD: {}, EUR: {} },
             monobank: { USD: { buy: 0, sell: 0 }, EUR: { buy: 0, sell: 0 } },
             raiffeisen: { USD: { buy: 0, sell: 0 }, EUR: { buy: 0, sell: 0 } }
         };
 
-        // Завантаження курсів валют
         async function loadExchangeRates() {
             try {
+                document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів...</div>';
+                
                 // Отримуємо курси ПриватБанку
                 const privatResponse = await fetch('https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=5');
                 const privatData = await privatResponse.json();
                 
-                // Обробляємо дані ПриватБанку
                 privatData.forEach(rate => {
                     if (rate.ccy === 'USD') {
                         exchangeRates.privatbank.USD.buy = parseFloat(rate.buy);
@@ -319,20 +325,30 @@
                         exchangeRates.privatbank.EUR.sell = parseFloat(rate.sale);
                     }
                 });
-                
-                // Статичні курси для інших банків (можна замінити на реальні API)
+
+                // Симулюємо курси інших банків
                 exchangeRates.monobank = {
-                    USD: { buy: exchangeRates.privatbank.USD.buy * 0.99, sell: exchangeRates.privatbank.USD.sell * 1.01 },
-                    EUR: { buy: exchangeRates.privatbank.EUR.buy * 0.99, sell: exchangeRates.privatbank.EUR.sell * 1.01 }
+                    USD: { 
+                        buy: (exchangeRates.privatbank.USD.buy * 0.995).toFixed(2), 
+                        sell: (exchangeRates.privatbank.USD.sell * 1.005).toFixed(2) 
+                    },
+                    EUR: { 
+                        buy: (exchangeRates.privatbank.EUR.buy * 0.995).toFixed(2), 
+                        sell: (exchangeRates.privatbank.EUR.sell * 1.005).toFixed(2) 
+                    }
                 };
                 
                 exchangeRates.raiffeisen = {
-                    USD: { buy: exchangeRates.privatbank.USD.buy * 0.98, sell: exchangeRates.privatbank.USD.sell * 1.02 },
-                    EUR: { buy: exchangeRates.privatbank.EUR.buy * 0.98, sell: exchangeRates.privatbank.EUR.sell * 1.02 }
+                    USD: { 
+                        buy: (exchangeRates.privatbank.USD.buy * 0.99).toFixed(2), 
+                        sell: (exchangeRates.privatbank.USD.sell * 1.01).toFixed(2) 
+                    },
+                    EUR: { 
+                        buy: (exchangeRates.privatbank.EUR.buy * 0.99).toFixed(2), 
+                        sell: (exchangeRates.privatbank.EUR.sell * 1.01).toFixed(2) 
+                    }
                 };
-                
-                // Оновлюємо інтерфейс
-                updateDisplay();
+
                 calculateRates();
                 
             } catch (error) {
@@ -342,17 +358,10 @@
             }
         }
 
-        // Функції калькулятора
         function updateDisplay() {
             document.getElementById('display').textContent = currentDisplay;
             document.getElementById('currency-symbol').textContent = currencySymbols[currentCurrency];
             updateCurrencyButtons();
-            
-            if (updateTimeout) {
-                clearTimeout(updateTimeout);
-            }
-            
-            updateTimeout = setTimeout(calculateRates, 300);
         }
         
         function updateCurrencyButtons() {
@@ -401,7 +410,10 @@
         }
         
         function setCurrency(currency) {
-            currentCurrency = currency;
+            if (currentCurrency !== currency) {
+                currentCurrency = currency;
+                loadExchangeRates();
+            }
             updateDisplay();
         }
         
@@ -410,7 +422,6 @@
                 let amount;
                 try {
                     amount = eval(currentDisplay);
-                    // Оновлюємо дисплей з результатом обчислення
                     currentDisplay = amount.toString();
                     updateDisplay();
                 } catch {
@@ -569,7 +580,7 @@
             }
         }
 
-        // Ініціалізація при завантаженні сторінки
+        // Ініціалізація
         document.addEventListener('DOMContentLoaded', function() {
             loadExchangeRates();
             updateDisplay();
