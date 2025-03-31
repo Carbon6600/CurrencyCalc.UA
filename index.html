@@ -332,6 +332,15 @@
             margin-top: 5px;
         }
         
+        .cashless-message {
+            color: #fff;
+            background-color: rgba(0,0,0,0.2);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 5px;
+        }
+        
         @keyframes pulse {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
@@ -430,7 +439,7 @@
             try {
                 document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів...</div>';
                 
-                // Завжди завантажуємо ПриватБанк
+                // Завантажуємо безготівковий курс ПриватБанку
                 await loadPrivatbankRates();
                 
                 // Перевіряємо, чи можна оновлювати Monobank
@@ -440,7 +449,6 @@
                     lastMonobankUpdate = now;
                 } else {
                     console.log('Monobank: оновлюємо не частіше 1 разу на 5 хвилин');
-                    // Використовуємо попередні дані Monobank
                     monobankAvailable = exchangeRates.monobank.USD.buy !== undefined;
                 }
                 
@@ -459,34 +467,53 @@
 
         async function loadPrivatbankRates() {
             try {
-                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-                const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5';
+                const proxyUrls = [
+                    'https://api.allorigins.win/raw?url=',
+                    'https://corsproxy.io/?'
+                ];
                 
-                const response = await fetch(proxyUrl + targetUrl, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
+                const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?exchange&json&coursid=11';
                 
-                if (!response.ok) throw new Error('Не вдалося отримати курси ПриватБанк');
+                let success = false;
                 
-                const data = await response.json();
-                
-                data.forEach(rate => {
-                    if (rate.ccy === 'USD') {
-                        exchangeRates.privatbank.USD = {
-                            buy: parseFloat(rate.buy),
-                            sell: parseFloat(rate.sale)
-                        };
-                    } else if (rate.ccy === 'EUR') {
-                        exchangeRates.privatbank.EUR = {
-                            buy: parseFloat(rate.buy),
-                            sell: parseFloat(rate.sale)
-                        };
-                    }
-                });
+                for (const proxyUrl of proxyUrls) {
+                    try {
+                        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        
+                        if (!response.ok) continue;
+                        
+                        const data = await response.json();
+                        
+                        data.forEach(rate => {
+                            if (rate.ccy === 'USD') {
+                                exchangeRates.privatbank.USD = {
+                                    buy: parseFloat(rate.buy),
+                                    sell: parseFloat(rate.sale)
+                                };
+                            } else if (rate.ccy === 'EUR') {
+                                exchangeRates.privatbank.EUR = {
+                                    buy: parseFloat(rate.buy),
+                                    sell: parseFloat(rate.sale)
+                                };
+                            }
+                        });
 
-                privatbankAvailable = true;
+                        privatbankAvailable = true;
+                        success = true;
+                        break;
+                        
+                    } catch (proxyError) {
+                        console.error(`Помилка з проксі ${proxyUrl}:`, proxyError);
+                    }
+                }
+                
+                if (!success) {
+                    throw new Error('Усі проксі не вдалося використати');
+                }
                 
             } catch (error) {
                 console.error('Помилка завантаження курсів ПриватБанк:', error);
@@ -653,12 +680,12 @@
                         <div class="update-info">${monobankUpdateMsg}</div>
                     </div>`;
                 
-                // ПриватБанк
+                // ПриватБанк (безготівковий курс)
                 resultsHTML += `
                     <div class="bank-card privatbank-card ${!privatbankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : 'privatbank-logo'}">П</div>
-                            <div>ПриватБанк ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>ПриватБанк <span class="cashless-message">безготівка</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${privatbankAvailable ? generateRateRows('privatbank', amount) : generateErrorRows()}
                     </div>`;
@@ -686,19 +713,19 @@
             if (currentCurrency === 'UAH') {
                 return `
                     <div class="rate-row">
-                        <span>USD купівля:</span>
+                        <span>USD купівля${bank === 'privatbank' ? ' (картки)' : ''}:</span>
                         <span class="rate-value">${(amount / exchangeRates[bank].USD.buy).toFixed(2)} $</span>
                     </div>
                     <div class="rate-row">
-                        <span>USD продаж:</span>
+                        <span>USD продаж${bank === 'privatbank' ? ' (картки)' : ''}:</span>
                         <span class="rate-value">${(amount / exchangeRates[bank].USD.sell).toFixed(2)} $</span>
                     </div>
                     <div class="rate-row">
-                        <span>EUR купівля:</span>
+                        <span>EUR купівля${bank === 'privatbank' ? ' (картки)' : ''}:</span>
                         <span class="rate-value">${(amount / exchangeRates[bank].EUR.buy).toFixed(2)} €</span>
                     </div>
                     <div class="rate-row">
-                        <span>EUR продаж:</span>
+                        <span>EUR продаж${bank === 'privatbank' ? ' (картки)' : ''}:</span>
                         <span class="rate-value">${(amount / exchangeRates[bank].EUR.sell).toFixed(2)} €</span>
                     </div>`;
             } else {
@@ -707,15 +734,15 @@
                 
                 return `
                     <div class="rate-row">
-                        <span>UAH купівля:</span>
+                        <span>UAH купівля${bank === 'privatbank' ? ' (картки)' : ''}:</span>
                         <span class="rate-value">${(amount * exchangeRates[bank][currencyKey].buy).toFixed(2)} ₴</span>
                     </div>
                     <div class="rate-row">
-                        <span>UAH продаж:</span>
+                        <span>UAH продаж${bank === 'privatbank' ? ' (картки)' : ''}:</span>
                         <span class="rate-value">${(amount * exchangeRates[bank][currencyKey].sell).toFixed(2)} ₴</span>
                     </div>
                     <div class="rate-row">
-                        <span>${otherCurrencyKey}:</span>
+                        <span>${otherCurrencyKey}${bank === 'privatbank' ? ' (картки)' : ''}:</span>
                         <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
                             (exchangeRates[bank].EUR.buy / exchangeRates[bank].USD.sell) : 
                             (exchangeRates[bank].USD.buy / exchangeRates[bank].EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
