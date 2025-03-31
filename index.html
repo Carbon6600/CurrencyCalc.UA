@@ -11,10 +11,11 @@
             -ms-user-select: none;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
         }
         
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: #f5f5f5;
             display: flex;
             justify-content: center;
@@ -26,12 +27,11 @@
         }
         
         .app-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             width: 100%;
             max-width: 375px;
             height: 812px;
+            display: flex;
+            flex-direction: column;
         }
         
         .app-title {
@@ -40,7 +40,6 @@
             font-weight: bold;
             margin-bottom: 8px;
             text-align: center;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
         
         .phone {
@@ -83,8 +82,6 @@
             margin-right: 8px;
             font-weight: bold;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
             height: 100%;
             display: flex;
             align-items: center;
@@ -139,7 +136,8 @@
             overflow-y: auto;
             scroll-snap-type: y mandatory;
             scroll-behavior: smooth;
-            padding-right: 4px;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
         
         .results-container::-webkit-scrollbar {
@@ -148,12 +146,11 @@
         
         .results-container::-webkit-scrollbar-track {
             background: #2a2a2a;
-            border-radius: 2px;
         }
         
         .results-container::-webkit-scrollbar-thumb {
             background: #ff9500;
-            border-radius: 2px;
+            border-radius: 3px;
         }
         
         .amount-title {
@@ -169,11 +166,11 @@
             padding: 12px;
             margin-bottom: 15px;
             height: 190px;
-            box-sizing: border-box;
             position: relative;
             overflow: hidden;
             transition: all 0.3s;
             scroll-snap-align: start;
+            scroll-snap-stop: always;
             scroll-margin-top: 10px;
         }
         
@@ -257,7 +254,6 @@
         .rate-value {
             font-weight: bold;
             color: white;
-            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
         }
         
         .keypad {
@@ -280,10 +276,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-        
-        button:hover {
-            background-color: #555;
         }
         
         button:active {
@@ -354,18 +346,18 @@
             margin-left: 4px;
         }
         
-        @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
-        }
-        
         .loading {
             text-align: center;
             padding: 15px;
             color: #ff9500;
             font-size: 14px;
             animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
         }
 
         @media (max-height: 800px) {
@@ -381,6 +373,12 @@
             }
             .keypad {
                 height: 220px;
+            }
+        }
+
+        @supports (-webkit-touch-callout: none) {
+            .results-container {
+                padding-right: 0;
             }
         }
     </style>
@@ -466,6 +464,69 @@
             e.preventDefault();
         });
 
+        function initScroll() {
+            const resultsContainer = document.getElementById('results-container');
+            let isScrolling = false;
+            let scrollTimeout;
+
+            resultsContainer.addEventListener('scroll', function() {
+                if (!isScrolling) {
+                    isScrolling = true;
+                    updateActiveCard();
+                    
+                    clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(() => {
+                        snapToNearestCard();
+                        isScrolling = false;
+                    }, 100);
+                }
+            });
+
+            function snapToNearestCard() {
+                const cards = document.querySelectorAll('.bank-card');
+                if (!cards.length) return;
+
+                const container = resultsContainer.getBoundingClientRect();
+                let closestCard = null;
+                let minDistance = Infinity;
+
+                cards.forEach(card => {
+                    const cardRect = card.getBoundingClientRect();
+                    const distance = Math.abs(cardRect.top - container.top);
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestCard = card;
+                    }
+                });
+
+                if (closestCard) {
+                    closestCard.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest'
+                    });
+                }
+            }
+
+            function updateActiveCard() {
+                const cards = document.querySelectorAll('.bank-card');
+                const container = resultsContainer.getBoundingClientRect();
+                const containerCenter = container.top + container.height / 2;
+
+                cards.forEach(card => {
+                    card.classList.remove('active');
+                    const cardRect = card.getBoundingClientRect();
+                    const cardCenter = cardRect.top + cardRect.height / 2;
+                    
+                    if (Math.abs(cardCenter - containerCenter) < cardRect.height / 2) {
+                        card.classList.add('active');
+                    }
+                });
+            }
+
+            updateActiveCard();
+        }
+
         async function loadExchangeRates() {
             try {
                 document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів...</div>';
@@ -477,7 +538,6 @@
                     await loadMonobankRates();
                     lastMonobankUpdate = now;
                 } else {
-                    console.log('Monobank: оновлюємо не частіше 1 разу на 5 хвилин');
                     monobankAvailable = exchangeRates.monobank.USD.buy !== undefined;
                 }
                 
@@ -556,7 +616,6 @@
                 
                 if (!response.ok) throw new Error('Не вдалося отримати курси Monobank');
                 if (response.status === 429) {
-                    console.log('Monobank: занадто багато запитів');
                     throw new Error('Досягнуто ліміт запитів до Monobank');
                 }
                 
@@ -727,8 +786,8 @@
                 resultsDiv.innerHTML = resultsHTML;
                 document.getElementById('last-updated').textContent = `Оновлено: ${new Date().toLocaleTimeString()}`;
                 
-                // Ініціалізація прокрутки після оновлення контенту
-                initScrollSnap();
+                // Ініціалізуємо скролінг після оновлення контенту
+                setTimeout(initScroll, 50);
                 
             } catch (error) {
                 console.error('Помилка розрахунку:', error);
@@ -781,48 +840,6 @@
                 <div class="error-message">Не вдалося завантажити актуальні курси</div>
                 <div class="static-data-message">Використовуються статичні дані</div>
             `;
-        }
-        
-        function initScrollSnap() {
-            const resultsContainer = document.getElementById('results-container');
-            const bankCards = document.querySelectorAll('.bank-card');
-            
-            function updateActiveCard() {
-                const containerRect = resultsContainer.getBoundingClientRect();
-                const containerCenter = containerRect.top + containerRect.height / 2;
-                
-                bankCards.forEach(card => {
-                    card.classList.remove('active');
-                    const cardRect = card.getBoundingClientRect();
-                    const cardCenter = cardRect.top + cardRect.height / 2;
-                    
-                    if (Math.abs(cardCenter - containerCenter) < cardRect.height / 3) {
-                        card.classList.add('active');
-                    }
-                });
-            }
-            
-            resultsContainer.addEventListener('scroll', updateActiveCard);
-            updateActiveCard();
-            
-            let isScrolling = false;
-            resultsContainer.addEventListener('scroll', () => {
-                if (!isScrolling) {
-                    window.requestAnimationFrame(() => {
-                        const scrollPosition = resultsContainer.scrollTop;
-                        const cardHeight = bankCards[0].offsetHeight + 15;
-                        const nearestCard = Math.round(scrollPosition / cardHeight);
-                        
-                        resultsContainer.scrollTo({
-                            top: nearestCard * cardHeight,
-                            behavior: 'smooth'
-                        });
-                        
-                        isScrolling = false;
-                    });
-                    isScrolling = true;
-                }
-            });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
