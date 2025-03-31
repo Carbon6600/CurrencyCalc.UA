@@ -30,7 +30,8 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 400px;
+            max-width: 375px;
+            height: 812px; /* iPhone 14 height */
         }
         
         .app-title {
@@ -44,20 +45,22 @@
         
         .phone {
             width: 100%;
-            max-width: 340px;
+            height: calc(100% - 40px);
             background: linear-gradient(145deg, #3a3a3a, #2d2d2d);
-            border-radius: 30px;
+            border-radius: 40px;
             padding: 20px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             color: white;
+            display: flex;
+            flex-direction: column;
         }
         
         .screen {
             background-color: #1e1e1e;
             padding: 15px;
-            border-radius: 15px;
+            border-radius: 20px;
             margin-bottom: 15px;
-            height: 380px;
+            height: 480px; /* Збільшена висота для однієї картки */
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -67,10 +70,11 @@
             display: flex;
             align-items: center;
             margin-bottom: 15px;
+            height: 60px;
         }
         
         .input-display {
-            font-size: 28px;
+            font-size: 32px;
             text-align: right;
             padding: 10px;
             background-color: #2a2a2a;
@@ -81,13 +85,21 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
         }
         
         .currency-symbol {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             width: 50px;
             text-align: center;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .currency-selector {
@@ -95,10 +107,11 @@
             margin-bottom: 15px;
             justify-content: space-between;
             gap: 10px;
+            height: 40px;
         }
         
         .currency-btn {
-            padding: 10px 0;
+            padding: 0;
             border: none;
             border-radius: 10px;
             cursor: pointer;
@@ -108,6 +121,10 @@
             background-color: #444;
             color: white;
             transition: all 0.3s;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .currency-btn.active {
@@ -151,13 +168,12 @@
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 15px;
-            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
-            scroll-snap-align: start;
             height: 180px;
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
             transition: transform 0.3s;
+            scroll-snap-align: start;
         }
         
         .bank-card:hover {
@@ -247,10 +263,11 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 10px;
+            height: 260px;
         }
         
         button {
-            padding: 16px 0;
+            padding: 0;
             font-size: 20px;
             border: none;
             border-radius: 12px;
@@ -259,7 +276,9 @@
             cursor: pointer;
             transition: all 0.2s;
             font-weight: bold;
-            -webkit-touch-callout: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         button:hover {
@@ -295,6 +314,8 @@
             text-align: center;
             padding: 20px;
             color: #ff9500;
+            font-size: 16px;
+            animation: pulse 1.5s infinite;
         }
         
         .refresh-btn {
@@ -346,9 +367,21 @@
             50% { opacity: 1; }
             100% { opacity: 0.6; }
         }
-        
-        .loading {
-            animation: pulse 1.5s infinite;
+
+        @media (max-height: 800px) {
+            .app-container {
+                height: 667px;
+            }
+            .screen {
+                height: 420px;
+            }
+            .bank-card {
+                height: 160px;
+                padding: 12px;
+            }
+            .keypad {
+                height: 240px;
+            }
         }
     </style>
 </head>
@@ -423,14 +456,12 @@
         let monobankAvailable = false;
         let isFirstInput = true;
         let lastMonobankUpdate = 0;
-        const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 хвилин в мілісекундах
+        const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000;
 
-        // Блокування контекстного меню (копіювання)
         document.addEventListener('contextmenu', function(e) {
             e.preventDefault();
         });
 
-        // Блокування виділення тексту
         document.addEventListener('selectstart', function(e) {
             e.preventDefault();
         });
@@ -439,10 +470,8 @@
             try {
                 document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів...</div>';
                 
-                // Завантажуємо безготівковий курс ПриватБанку
                 await loadPrivatbankRates();
                 
-                // Перевіряємо, чи можна оновлювати Monobank
                 const now = Date.now();
                 if (now - lastMonobankUpdate > MONOBANK_UPDATE_INTERVAL || lastMonobankUpdate === 0) {
                     await loadMonobankRates();
@@ -533,7 +562,6 @@
                 
                 const data = await response.json();
                 
-                // Шукаємо USD/UAH
                 const usdRate = data.find(rate => 
                     rate.currencyCodeA === currencyCodes.USD && 
                     rate.currencyCodeB === currencyCodes.UAH
@@ -546,7 +574,6 @@
                     };
                 }
                 
-                // Шукаємо EUR/UAH
                 const eurRate = data.find(rate => 
                     rate.currencyCodeA === currencyCodes.EUR && 
                     rate.currencyCodeB === currencyCodes.UAH
@@ -665,7 +692,6 @@
                 const resultsDiv = document.getElementById('results');
                 let resultsHTML = `<div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>`;
                 
-                // Monobank
                 const monobankTimeLeft = Math.max(0, MONOBANK_UPDATE_INTERVAL - (Date.now() - lastMonobankUpdate));
                 const monobankUpdateMsg = monobankTimeLeft > 0 ? 
                     `Оновлення через ${Math.ceil(monobankTimeLeft/60000)} хв` : 'Доступно оновлення';
@@ -680,17 +706,15 @@
                         <div class="update-info">${monobankUpdateMsg}</div>
                     </div>`;
                 
-                // ПриватБанк (безготівковий курс)
                 resultsHTML += `
                     <div class="bank-card privatbank-card ${!privatbankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : 'privatbank-logo'}">П</div>
-                            <div>ПриватБанк <span class="cashless-message">безготівка</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>ПриватБанк <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${privatbankAvailable ? generateRateRows('privatbank', amount) : generateErrorRows()}
                     </div>`;
                 
-                // Raiffeisen (завжди доступний як статичний)
                 resultsHTML += `
                     <div class="bank-card raiffeisen-card">
                         <div class="bank-header">
