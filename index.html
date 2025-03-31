@@ -36,19 +36,19 @@
         
         .app-title {
             color: #333;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-align: center;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
         
         .phone {
             width: 100%;
-            height: calc(100% - 40px);
+            height: calc(100% - 30px);
             background: linear-gradient(145deg, #3a3a3a, #2d2d2d);
             border-radius: 40px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             color: white;
             display: flex;
@@ -57,10 +57,10 @@
         
         .screen {
             background-color: #1e1e1e;
-            padding: 15px;
+            padding: 12px;
             border-radius: 20px;
-            margin-bottom: 15px;
-            height: 480px; /* Збільшена висота для однієї картки */
+            margin-bottom: 12px;
+            height: 480px; /* Збільшено для кращого відображення */
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -69,18 +69,18 @@
         .input-container {
             display: flex;
             align-items: center;
-            margin-bottom: 15px;
-            height: 60px;
+            margin-bottom: 12px;
+            height: 50px;
         }
         
         .input-display {
-            font-size: 32px;
+            font-size: 28px;
             text-align: right;
-            padding: 10px;
+            padding: 8px;
             background-color: #2a2a2a;
             border-radius: 10px;
             flex-grow: 1;
-            margin-right: 10px;
+            margin-right: 8px;
             font-weight: bold;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -92,9 +92,9 @@
         }
         
         .currency-symbol {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: bold;
-            width: 50px;
+            width: 40px;
             text-align: center;
             height: 100%;
             display: flex;
@@ -104,16 +104,16 @@
         
         .currency-selector {
             display: flex;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             justify-content: space-between;
-            gap: 10px;
-            height: 40px;
+            gap: 8px;
+            height: 36px;
         }
         
         .currency-btn {
             padding: 0;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
             flex-grow: 1;
@@ -121,7 +121,7 @@
             background-color: #444;
             color: white;
             transition: all 0.3s;
-            font-size: 16px;
+            font-size: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -130,20 +130,20 @@
         .currency-btn.active {
             background-color: #ff9500;
             color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(255, 149, 0, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
         }
         
         .results-container {
-            flex-grow: 1;
+            flex: 1;
             overflow-y: auto;
             scroll-snap-type: y mandatory;
             scroll-behavior: smooth;
-            padding-right: 5px;
+            padding-right: 4px;
         }
         
         .results-container::-webkit-scrollbar {
-            width: 4px;
+            width: 3px;
         }
         
         .results-container::-webkit-scrollbar-track {
@@ -157,8 +157,8 @@
         }
         
         .amount-title {
-            font-size: 16px;
-            margin-bottom: 10px;
+            font-size: 14px;
+            margin-bottom: 8px;
             color: #ccc;
             font-weight: bold;
             text-align: center;
@@ -166,9 +166,9 @@
         
         .bank-card {
             border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 15px;
-            height: 180px;
+            padding: 12px;
+            margin-bottom: 12px;
+            height: 190px; /* Оптимізовано для відображення всіх курсів */
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
@@ -177,27 +177,27 @@
         }
         
         .bank-card:hover {
-            transform: translateY(-3px);
+            transform: translateY(-2px);
         }
         
         .monobank-card {
             background: linear-gradient(135deg, #6f2c91 0%, #8e44ad 100%);
-            border-left: 4px solid #f39c12;
+            border-left: 3px solid #f39c12;
         }
         
         .privatbank-card {
             background: linear-gradient(135deg, #2e8b57 0%, #27ae60 100%);
-            border-left: 4px solid #f1c40f;
+            border-left: 3px solid #f1c40f;
         }
         
         .raiffeisen-card {
             background: linear-gradient(135deg, #ff6600 0%, #e67e22 100%);
-            border-left: 4px solid #e74c3c;
+            border-left: 3px solid #e74c3c;
         }
         
         .bank-card.error {
             background: #2a2a2a;
-            border-left: 4px solid #ff5555;
+            border-left: 3px solid #ff5555;
             opacity: 0.7;
         }
         
@@ -205,72 +205,72 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 15px;
-            font-size: 18px;
+            margin-bottom: 10px;
+            font-size: 16px;
             font-weight: bold;
         }
         
         .bank-logo {
-            width: 30px;
-            height: 30px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 12px;
-            font-size: 14px;
+            margin-right: 10px;
+            font-size: 12px;
             font-weight: bold;
             color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         
         .monobank-logo { 
             background-color: rgba(255,255,255,0.2);
-            border: 2px solid white;
+            border: 1px solid white;
         }
         
         .privatbank-logo { 
             background-color: rgba(255,255,255,0.2);
-            border: 2px solid white;
+            border: 1px solid white;
         }
         
         .raiffeisen-logo { 
             background-color: rgba(255,255,255,0.2);
-            border: 2px solid white;
+            border: 1px solid white;
         }
         
         .error-logo {
             background-color: rgba(255,85,85,0.3);
-            border: 2px solid #ff5555;
+            border: 1px solid #ff5555;
         }
         
         .rate-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 14px;
-            padding: 6px 0;
+            margin-bottom: 6px;
+            font-size: 12px;
+            padding: 4px 0;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
         .rate-value {
             font-weight: bold;
             color: white;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            text-shadow: 0 1px 1px rgba(0,0,0,0.3);
         }
         
         .keypad {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            height: 260px;
+            gap: 8px;
+            height: 240px;
         }
         
         button {
             padding: 0;
-            font-size: 20px;
+            font-size: 18px;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             background-color: #444;
             color: white;
             cursor: pointer;
@@ -283,11 +283,10 @@
         
         button:hover {
             background-color: #555;
-            transform: translateY(-2px);
         }
         
         button:active {
-            transform: translateY(0);
+            transform: translateY(1px);
         }
         
         button.operator {
@@ -304,68 +303,68 @@
         }
         
         .last-updated {
-            font-size: 12px;
+            font-size: 10px;
             color: #aaa;
             text-align: center;
-            margin-top: 10px;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #ff9500;
-            font-size: 16px;
-            animation: pulse 1.5s infinite;
+            margin-top: 8px;
         }
         
         .refresh-btn {
             background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            margin-top: 10px;
-            padding: 10px;
-            font-size: 16px;
+            margin-top: 8px;
+            padding: 8px;
+            font-size: 14px;
             border: none;
             color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         
         .error-message {
             color: #ff5555;
             text-align: center;
-            padding: 5px;
-            font-size: 12px;
+            padding: 4px;
+            font-size: 11px;
             font-weight: bold;
-            margin-top: 5px;
+            margin-top: 4px;
         }
         
         .static-data-message {
             color: #ff9500;
-            font-size: 12px;
+            font-size: 11px;
             text-align: center;
-            margin-top: 5px;
+            margin-top: 4px;
             font-style: italic;
         }
         
         .update-info {
             color: #aaa;
-            font-size: 11px;
+            font-size: 10px;
             text-align: center;
-            margin-top: 5px;
+            margin-top: 4px;
         }
         
         .cashless-message {
             color: #fff;
             background-color: rgba(0,0,0,0.2);
-            padding: 2px 5px;
+            padding: 1px 4px;
             border-radius: 3px;
-            font-size: 10px;
-            margin-left: 5px;
+            font-size: 9px;
+            margin-left: 4px;
         }
         
         @keyframes pulse {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
             100% { opacity: 0.6; }
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 15px;
+            color: #ff9500;
+            font-size: 14px;
+            animation: pulse 1.5s infinite;
         }
 
         @media (max-height: 800px) {
@@ -376,11 +375,11 @@
                 height: 420px;
             }
             .bank-card {
-                height: 160px;
-                padding: 12px;
+                height: 170px;
+                padding: 10px;
             }
             .keypad {
-                height: 240px;
+                height: 220px;
             }
         }
     </style>
