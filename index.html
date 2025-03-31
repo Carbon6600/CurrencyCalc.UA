@@ -31,7 +31,7 @@
             align-items: center;
             width: 100%;
             max-width: 375px;
-            height: 812px; /* iPhone 14 height */
+            height: 812px;
         }
         
         .app-title {
@@ -60,7 +60,7 @@
             padding: 12px;
             border-radius: 20px;
             margin-bottom: 12px;
-            height: 480px; /* Збільшено для кращого відображення */
+            height: 480px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -167,17 +167,18 @@
         .bank-card {
             border-radius: 12px;
             padding: 12px;
-            margin-bottom: 12px;
-            height: 190px; /* Оптимізовано для відображення всіх курсів */
+            margin-bottom: 15px;
+            height: 190px;
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
-            transition: transform 0.3s;
+            transition: all 0.3s;
             scroll-snap-align: start;
+            scroll-margin-top: 10px;
         }
         
-        .bank-card:hover {
-            transform: translateY(-2px);
+        .bank-card.active {
+            box-shadow: 0 0 0 2px #ff9500;
         }
         
         .monobank-card {
@@ -725,7 +726,9 @@
                 
                 resultsDiv.innerHTML = resultsHTML;
                 document.getElementById('last-updated').textContent = `Оновлено: ${new Date().toLocaleTimeString()}`;
-                document.getElementById('results-container').scrollTo(0, 0);
+                
+                // Ініціалізація прокрутки після оновлення контенту
+                initScrollSnap();
                 
             } catch (error) {
                 console.error('Помилка розрахунку:', error);
@@ -778,6 +781,48 @@
                 <div class="error-message">Не вдалося завантажити актуальні курси</div>
                 <div class="static-data-message">Використовуються статичні дані</div>
             `;
+        }
+        
+        function initScrollSnap() {
+            const resultsContainer = document.getElementById('results-container');
+            const bankCards = document.querySelectorAll('.bank-card');
+            
+            function updateActiveCard() {
+                const containerRect = resultsContainer.getBoundingClientRect();
+                const containerCenter = containerRect.top + containerRect.height / 2;
+                
+                bankCards.forEach(card => {
+                    card.classList.remove('active');
+                    const cardRect = card.getBoundingClientRect();
+                    const cardCenter = cardRect.top + cardRect.height / 2;
+                    
+                    if (Math.abs(cardCenter - containerCenter) < cardRect.height / 3) {
+                        card.classList.add('active');
+                    }
+                });
+            }
+            
+            resultsContainer.addEventListener('scroll', updateActiveCard);
+            updateActiveCard();
+            
+            let isScrolling = false;
+            resultsContainer.addEventListener('scroll', () => {
+                if (!isScrolling) {
+                    window.requestAnimationFrame(() => {
+                        const scrollPosition = resultsContainer.scrollTop;
+                        const cardHeight = bankCards[0].offsetHeight + 15;
+                        const nearestCard = Math.round(scrollPosition / cardHeight);
+                        
+                        resultsContainer.scrollTo({
+                            top: nearestCard * cardHeight,
+                            behavior: 'smooth'
+                        });
+                        
+                        isScrolling = false;
+                    });
+                    isScrolling = true;
+                }
+            });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
