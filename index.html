@@ -131,7 +131,7 @@
             box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
         }
         
-        .results-wrapper {
+        .scroll-container {
             flex: 1;
             position: relative;
             overflow: hidden;
@@ -142,17 +142,13 @@
             top: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            scroll-snap-type: y mandatory;
-            scroll-behavior: smooth;
-            overscroll-behavior: contain;
-            padding-right: 5px;
+            height: 100%;
+            overflow: hidden;
         }
         
-        .results-container::-webkit-scrollbar {
-            display: none;
+        .results-content {
+            position: relative;
+            transition: transform 0.2s ease-out;
         }
         
         .amount-title {
@@ -171,8 +167,6 @@
             position: relative;
             overflow: hidden;
             transition: all 0.3s;
-            scroll-snap-align: start;
-            scroll-snap-stop: always;
         }
         
         .bank-card.active {
@@ -392,10 +386,12 @@
                     <button class="currency-btn active" onclick="setCurrency('USD')">USD</button>
                     <button class="currency-btn" onclick="setCurrency('EUR')">EUR</button>
                 </div>
-                <div class="results-wrapper">
-                    <div class="results-container" id="results-container">
-                        <div class="results" id="results">
-                            <div class="loading">Завантаження курсів...</div>
+                <div class="scroll-container" id="scroll-container">
+                    <div class="results-container">
+                        <div class="results-content" id="results-content">
+                            <div class="results" id="results">
+                                <div class="loading">Завантаження курсів...</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -453,6 +449,18 @@
         let lastMonobankUpdate = 0;
         const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000;
 
+        // Custom scroll variables
+        let startY = 0;
+        let currentY = 0;
+        let scrollY = 0;
+        let isDragging = false;
+        let animationFrame;
+        let velocity = 0;
+        let lastTime = 0;
+        let lastY = 0;
+        const friction = 0.92;
+        const snapThreshold = 50;
+
         document.addEventListener('contextmenu', function(e) {
             e.preventDefault();
         });
@@ -461,60 +469,154 @@
             e.preventDefault();
         });
 
-        function initScroll() {
-            const resultsContainer = document.getElementById('results-container');
-            let isDragging = false;
-            let startY = 0;
-            let scrollTop = 0;
-            let momentumId;
-            let velocity = 0;
-            const friction = 0.95;
-            const snapThreshold = 50;
-
-            function getNearestSnapPosition() {
+        function initCustomScroll() {
+            const container = document.getElementById('scroll-container');
+            const content = document.getElementById('results-content');
+            const results = document.getElementById('results');
+            
+            // Set initial height
+            updateContentHeight();
+            
+            // Touch events
+            container.addEventListener('touchstart', handleTouchStart, { passive: false });
+            container.addEventListener('touchmove', handleTouchMove, { passive: false });
+            container.addEventListener('touchend', handleTouchEnd, { passive: false });
+            
+            function updateContentHeight() {
+                const containerHeight = container.clientHeight;
+                const resultsHeight = results.clientHeight;
+                content.style.height = `${resultsHeight}px`;
+            }
+            
+            function handleTouchStart(e) {
+                isDragging = true;
+                startY = e.touches[0].clientY;
+                currentY = startY;
+                lastY = startY;
+                lastTime = performance.now();
+                velocity = 0;
+                cancelAnimationFrame(animationFrame);
+                e.preventDefault();
+            }
+            
+            function handleTouchMove(e) {
+                if (!isDragging) return;
+                
+                const y = e.touches[0].clientY;
+                const deltaY = y - currentY;
+                
+                scrollY -= deltaY;
+                applyScroll();
+                
+                // Calculate velocity for momentum scrolling
+                const time = performance.now();
+                const deltaTime = time - lastTime;
+                
+                if (deltaTime > 0) {
+                    velocity = (y - lastY) / deltaTime;
+                    lastY = y;
+                    lastTime = time;
+                }
+                
+                currentY = y;
+                e.preventDefault();
+            }
+            
+            function handleTouchEnd() {
+                isDragging = false;
+                
+                // Apply momentum scrolling
+                if (Math.abs(velocity) > 0.1) {
+                    animateMomentum();
+                } else {
+                    snapToNearest();
+                }
+            }
+            
+            function applyScroll() {
+                const containerHeight = container.clientHeight;
+                const contentHeight = content.clientHeight;
+                
+                // Apply boundaries
+                if (scrollY > 0) {
+                    scrollY = 0;
+                } else if (scrollY < containerHeight - contentHeight) {
+                    scrollY = containerHeight - contentHeight;
+                }
+                
+                content.style.transform = `translateY(${scrollY}px)`;
+                updateActiveCard();
+            }
+            
+            function animateMomentum() {
+                velocity *= friction;
+                scrollY += velocity * 16;
+                
+                applyScroll();
+                
+                if (Math.abs(velocity) > 0.1) {
+                    animationFrame = requestAnimationFrame(animateMomentum);
+                } else {
+                    snapToNearest();
+                }
+            }
+            
+            function snapToNearest() {
                 const cards = document.querySelectorAll('.bank-card');
-                if (!cards.length) return 0;
-
-                const container = resultsContainer.getBoundingClientRect();
+                if (cards.length === 0) return;
+                
                 let closestCard = null;
                 let minDistance = Infinity;
-
+                const containerRect = container.getBoundingClientRect();
+                const containerCenter = containerRect.top + containerRect.height / 2;
+                
                 cards.forEach(card => {
                     const cardRect = card.getBoundingClientRect();
-                    const distance = Math.abs(cardRect.top - container.top);
+                    const cardCenter = cardRect.top + cardRect.height / 2;
+                    const distance = Math.abs(cardCenter - containerCenter);
                     
                     if (distance < minDistance) {
                         minDistance = distance;
                         closestCard = card;
                     }
                 });
-
+                
                 if (closestCard) {
                     const cardRect = closestCard.getBoundingClientRect();
-                    return cardRect.top - container.top + resultsContainer.scrollTop;
+                    const targetScroll = scrollY + (cardRect.top - containerRect.top) - (containerRect.height - cardRect.height) / 2;
+                    
+                    // Smooth scroll to target position
+                    const startScroll = scrollY;
+                    const distance = targetScroll - startScroll;
+                    const duration = 300;
+                    let startTime = null;
+                    
+                    function animateScroll(timestamp) {
+                        if (!startTime) startTime = timestamp;
+                        const progress = timestamp - startTime;
+                        const percentage = Math.min(progress / duration, 1);
+                        
+                        scrollY = startScroll + distance * easeOutCubic(percentage);
+                        applyScroll();
+                        
+                        if (percentage < 1) {
+                            animationFrame = requestAnimationFrame(animateScroll);
+                        }
+                    }
+                    
+                    animationFrame = requestAnimationFrame(animateScroll);
                 }
-                return 0;
             }
-
-            function snapToNearest() {
-                const targetPos = getNearestSnapPosition();
-                const diff = targetPos - resultsContainer.scrollTop;
-                
-                if (Math.abs(diff) > 1) {
-                    const step = diff * 0.2;
-                    resultsContainer.scrollTop += step;
-                    requestAnimationFrame(snapToNearest);
-                } else {
-                    resultsContainer.scrollTop = targetPos;
-                    updateActiveCard();
-                }
+            
+            function easeOutCubic(t) {
+                return 1 - Math.pow(1 - t, 3);
             }
-
+            
             function updateActiveCard() {
                 const cards = document.querySelectorAll('.bank-card');
-                const container = resultsContainer.getBoundingClientRect();
-                const containerCenter = container.top + container.height / 2;
-
+                const containerRect = container.getBoundingClientRect();
+                const containerCenter = containerRect.top + containerRect.height / 2;
+                
                 cards.forEach(card => {
                     card.classList.remove('active');
                     const cardRect = card.getBoundingClientRect();
@@ -525,49 +627,6 @@
                     }
                 });
             }
-
-            function momentumScroll() {
-                if (Math.abs(velocity) > 0.5) {
-                    resultsContainer.scrollTop += velocity;
-                    velocity *= friction;
-                    momentumId = requestAnimationFrame(momentumScroll);
-                } else {
-                    cancelAnimationFrame(momentumId);
-                    snapToNearest();
-                }
-            }
-
-            resultsContainer.addEventListener('touchstart', function(e) {
-                isDragging = true;
-                startY = e.touches[0].clientY;
-                scrollTop = resultsContainer.scrollTop;
-                velocity = 0;
-                cancelAnimationFrame(momentumId);
-            }, { passive: true });
-
-            resultsContainer.addEventListener('touchmove', function(e) {
-                if (!isDragging) return;
-                const y = e.touches[0].clientY;
-                const deltaY = y - startY;
-                resultsContainer.scrollTop = scrollTop - deltaY;
-                velocity = (scrollTop - deltaY - resultsContainer.scrollTop) * 0.5;
-            }, { passive: true });
-
-            resultsContainer.addEventListener('touchend', function() {
-                isDragging = false;
-                momentumScroll();
-            }, { passive: true });
-
-            resultsContainer.addEventListener('scroll', function() {
-                if (!isDragging) {
-                    updateActiveCard();
-                }
-            }, { passive: true });
-
-            // Initial snap
-            setTimeout(() => {
-                snapToNearest();
-            }, 100);
         }
 
         async function loadExchangeRates() {
@@ -829,8 +888,14 @@
                 resultsDiv.innerHTML = resultsHTML;
                 document.getElementById('last-updated').textContent = `Оновлено: ${new Date().toLocaleTimeString()}`;
                 
-                // Ініціалізуємо скролінг після оновлення контенту
-                setTimeout(initScroll, 50);
+                // Update scroll content height and reset position
+                setTimeout(() => {
+                    const content = document.getElementById('results-content');
+                    const results = document.getElementById('results');
+                    content.style.height = `${results.clientHeight}px`;
+                    scrollY = 0;
+                    content.style.transform = 'translateY(0)';
+                }, 50);
                 
             } catch (error) {
                 console.error('Помилка розрахунку:', error);
@@ -890,6 +955,7 @@
             currentCurrency = 'USD';
             updateDisplay();
             loadExchangeRates();
+            initCustomScroll();
         });
     </script>
 </body>
