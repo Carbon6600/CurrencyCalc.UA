@@ -131,27 +131,28 @@
             box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
         }
         
-        .results-container {
+        .results-wrapper {
             flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .results-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             scroll-snap-type: y mandatory;
             scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
-            padding-right: 3px;
+            padding-right: 5px;
         }
         
         .results-container::-webkit-scrollbar {
-            width: 3px;
-        }
-        
-        .results-container::-webkit-scrollbar-track {
-            background: #2a2a2a;
-        }
-        
-        .results-container::-webkit-scrollbar-thumb {
-            background: #ff9500;
-            border-radius: 3px;
+            display: none;
         }
         
         .amount-title {
@@ -172,7 +173,6 @@
             transition: all 0.3s;
             scroll-snap-align: start;
             scroll-snap-stop: always;
-            scroll-margin-top: 10px;
         }
         
         .bank-card.active {
@@ -376,12 +376,6 @@
                 height: 220px;
             }
         }
-
-        @supports (-webkit-touch-callout: none) {
-            .results-container {
-                padding-right: 0;
-            }
-        }
     </style>
 </head>
 <body>
@@ -398,9 +392,11 @@
                     <button class="currency-btn active" onclick="setCurrency('USD')">USD</button>
                     <button class="currency-btn" onclick="setCurrency('EUR')">EUR</button>
                 </div>
-                <div class="results-container" id="results-container">
-                    <div class="results" id="results">
-                        <div class="loading">Завантаження курсів...</div>
+                <div class="results-wrapper">
+                    <div class="results-container" id="results-container">
+                        <div class="results" id="results">
+                            <div class="loading">Завантаження курсів...</div>
+                        </div>
                     </div>
                 </div>
                 <div class="last-updated" id="last-updated"></div>
@@ -467,25 +463,17 @@
 
         function initScroll() {
             const resultsContainer = document.getElementById('results-container');
-            let isScrolling = false;
-            let scrollTimeout;
+            let isDragging = false;
+            let startY = 0;
+            let scrollTop = 0;
+            let momentumId;
+            let velocity = 0;
+            const friction = 0.95;
+            const snapThreshold = 50;
 
-            resultsContainer.addEventListener('scroll', function() {
-                if (!isScrolling) {
-                    isScrolling = true;
-                    updateActiveCard();
-                    
-                    clearTimeout(scrollTimeout);
-                    scrollTimeout = setTimeout(() => {
-                        snapToNearestCard();
-                        isScrolling = false;
-                    }, 100);
-                }
-            });
-
-            function snapToNearestCard() {
+            function getNearestSnapPosition() {
                 const cards = document.querySelectorAll('.bank-card');
-                if (!cards.length) return;
+                if (!cards.length) return 0;
 
                 const container = resultsContainer.getBoundingClientRect();
                 let closestCard = null;
@@ -502,10 +490,23 @@
                 });
 
                 if (closestCard) {
-                    closestCard.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'nearest'
-                    });
+                    const cardRect = closestCard.getBoundingClientRect();
+                    return cardRect.top - container.top + resultsContainer.scrollTop;
+                }
+                return 0;
+            }
+
+            function snapToNearest() {
+                const targetPos = getNearestSnapPosition();
+                const diff = targetPos - resultsContainer.scrollTop;
+                
+                if (Math.abs(diff) > 1) {
+                    const step = diff * 0.2;
+                    resultsContainer.scrollTop += step;
+                    requestAnimationFrame(snapToNearest);
+                } else {
+                    resultsContainer.scrollTop = targetPos;
+                    updateActiveCard();
                 }
             }
 
@@ -525,7 +526,48 @@
                 });
             }
 
-            updateActiveCard();
+            function momentumScroll() {
+                if (Math.abs(velocity) > 0.5) {
+                    resultsContainer.scrollTop += velocity;
+                    velocity *= friction;
+                    momentumId = requestAnimationFrame(momentumScroll);
+                } else {
+                    cancelAnimationFrame(momentumId);
+                    snapToNearest();
+                }
+            }
+
+            resultsContainer.addEventListener('touchstart', function(e) {
+                isDragging = true;
+                startY = e.touches[0].clientY;
+                scrollTop = resultsContainer.scrollTop;
+                velocity = 0;
+                cancelAnimationFrame(momentumId);
+            }, { passive: true });
+
+            resultsContainer.addEventListener('touchmove', function(e) {
+                if (!isDragging) return;
+                const y = e.touches[0].clientY;
+                const deltaY = y - startY;
+                resultsContainer.scrollTop = scrollTop - deltaY;
+                velocity = (scrollTop - deltaY - resultsContainer.scrollTop) * 0.5;
+            }, { passive: true });
+
+            resultsContainer.addEventListener('touchend', function() {
+                isDragging = false;
+                momentumScroll();
+            }, { passive: true });
+
+            resultsContainer.addEventListener('scroll', function() {
+                if (!isDragging) {
+                    updateActiveCard();
+                }
+            }, { passive: true });
+
+            // Initial snap
+            setTimeout(() => {
+                snapToNearest();
+            }, 100);
         }
 
         async function loadExchangeRates() {
