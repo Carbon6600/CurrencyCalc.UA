@@ -15,7 +15,7 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Arial', sans-serif;
             background-color: #f5f5f5;
             display: flex;
             justify-content: center;
@@ -27,39 +27,38 @@
         }
         
         .app-container {
-            width: 100%;
-            max-width: 375px;
-            height: 812px;
             display: flex;
             flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
         }
         
         .app-title {
             color: #333;
-            font-size: 22px;
+            font-size: 24px;
             font-weight: bold;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
         
         .phone {
             width: 100%;
-            height: calc(100% - 30px);
+            max-width: 340px;
             background: linear-gradient(145deg, #3a3a3a, #2d2d2d);
-            border-radius: 40px;
-            padding: 15px;
+            border-radius: 30px;
+            padding: 20px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             color: white;
-            display: flex;
-            flex-direction: column;
         }
         
         .screen {
             background-color: #1e1e1e;
-            padding: 12px;
-            border-radius: 20px;
-            margin-bottom: 12px;
-            height: 480px;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            height: 380px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -68,49 +67,41 @@
         .input-container {
             display: flex;
             align-items: center;
-            margin-bottom: 12px;
-            height: 50px;
+            margin-bottom: 15px;
         }
         
         .input-display {
             font-size: 28px;
             text-align: right;
-            padding: 8px;
+            padding: 10px;
             background-color: #2a2a2a;
             border-radius: 10px;
             flex-grow: 1;
-            margin-right: 8px;
+            margin-right: 10px;
             font-weight: bold;
             overflow: hidden;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         
         .currency-symbol {
             font-size: 24px;
             font-weight: bold;
-            width: 40px;
+            width: 50px;
             text-align: center;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         
         .currency-selector {
             display: flex;
-            margin-bottom: 12px;
+            margin-bottom: 15px;
             justify-content: space-between;
-            gap: 8px;
-            height: 36px;
+            gap: 10px;
         }
         
         .currency-btn {
-            padding: 0;
+            padding: 10px 0;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: bold;
             flex-grow: 1;
@@ -118,20 +109,16 @@
             background-color: #444;
             color: white;
             transition: all 0.3s;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         
         .currency-btn.active {
             background-color: #ff9500;
             color: white;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 149, 0, 0.3);
         }
         
-        .scroll-container {
+        .results-wrapper {
             flex: 1;
             position: relative;
             overflow: hidden;
@@ -142,18 +129,22 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 100%;
-            overflow: hidden;
+            bottom: 0;
+            overflow-y: scroll;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+            overscroll-behavior: contain;
+            padding-right: 5px;
         }
         
-        .results-content {
-            position: relative;
-            transition: transform 0.2s ease-out;
+        .results-container::-webkit-scrollbar {
+            display: none;
         }
         
         .amount-title {
-            font-size: 14px;
-            margin-bottom: 8px;
+            font-size: 16px;
+            margin-bottom: 10px;
             color: #ccc;
             font-weight: bold;
             text-align: center;
@@ -161,36 +152,39 @@
         
         .bank-card {
             border-radius: 12px;
-            padding: 12px;
+            padding: 15px;
             margin-bottom: 15px;
-            height: 170px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+            scroll-snap-align: start;
+            height: 180px;
+            box-sizing: border-box;
             position: relative;
             overflow: hidden;
-            transition: all 0.3s;
+            transition: transform 0.3s;
         }
         
-        .bank-card.active {
-            box-shadow: 0 0 0 2px #ff9500;
+        .bank-card:active {
+            transform: translateY(-3px);
         }
         
         .monobank-card {
             background: linear-gradient(135deg, #6f2c91 0%, #8e44ad 100%);
-            border-left: 3px solid #f39c12;
+            border-left: 4px solid #f39c12;
         }
         
         .privatbank-card {
             background: linear-gradient(135deg, #2e8b57 0%, #27ae60 100%);
-            border-left: 3px solid #f1c40f;
+            border-left: 4px solid #f1c40f;
         }
         
         .raiffeisen-card {
             background: linear-gradient(135deg, #ff6600 0%, #e67e22 100%);
-            border-left: 3px solid #e74c3c;
+            border-left: 4px solid #e74c3c;
         }
         
         .bank-card.error {
             background: #2a2a2a;
-            border-left: 3px solid #ff5555;
+            border-left: 4px solid #ff5555;
             opacity: 0.7;
         }
         
@@ -198,79 +192,77 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 10px;
-            font-size: 16px;
+            margin-bottom: 15px;
+            font-size: 18px;
             font-weight: bold;
         }
         
         .bank-logo {
-            width: 26px;
-            height: 26px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 10px;
-            font-size: 12px;
+            margin-right: 12px;
+            font-size: 14px;
             font-weight: bold;
             color: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .monobank-logo { 
             background-color: rgba(255,255,255,0.2);
-            border: 1px solid white;
+            border: 2px solid white;
         }
         
         .privatbank-logo { 
             background-color: rgba(255,255,255,0.2);
-            border: 1px solid white;
+            border: 2px solid white;
         }
         
         .raiffeisen-logo { 
             background-color: rgba(255,255,255,0.2);
-            border: 1px solid white;
+            border: 2px solid white;
         }
         
         .error-logo {
             background-color: rgba(255,85,85,0.3);
-            border: 1px solid #ff5555;
+            border: 2px solid #ff5555;
         }
         
         .rate-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 6px;
-            font-size: 12px;
-            padding: 4px 0;
+            margin-bottom: 8px;
+            font-size: 14px;
+            padding: 6px 0;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
         .rate-value {
             font-weight: bold;
             color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         
         .keypad {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            height: 240px;
+            gap: 10px;
         }
         
         button {
-            padding: 0;
-            font-size: 18px;
+            padding: 16px 0;
+            font-size: 20px;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             background-color: #444;
             color: white;
             cursor: pointer;
             transition: all 0.2s;
             font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            -webkit-touch-callout: none;
         }
         
         button:active {
@@ -291,62 +283,60 @@
         }
         
         .last-updated {
-            font-size: 10px;
+            font-size: 12px;
             color: #aaa;
             text-align: center;
-            margin-top: 8px;
+            margin-top: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #ff9500;
         }
         
         .refresh-btn {
             background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            margin-top: 8px;
-            padding: 8px;
-            font-size: 14px;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
             border: none;
             color: white;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .error-message {
             color: #ff5555;
             text-align: center;
-            padding: 4px;
-            font-size: 11px;
+            padding: 5px;
+            font-size: 12px;
             font-weight: bold;
-            margin-top: 4px;
+            margin-top: 5px;
         }
         
         .static-data-message {
             color: #ff9500;
-            font-size: 11px;
+            font-size: 12px;
             text-align: center;
-            margin-top: 4px;
+            margin-top: 5px;
             font-style: italic;
         }
         
         .update-info {
             color: #aaa;
-            font-size: 10px;
+            font-size: 11px;
             text-align: center;
-            margin-top: 4px;
+            margin-top: 5px;
         }
         
         .cashless-message {
             color: #fff;
             background-color: rgba(0,0,0,0.2);
-            padding: 1px 4px;
+            padding: 2px 5px;
             border-radius: 3px;
-            font-size: 9px;
-            margin-left: 4px;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 15px;
-            color: #ff9500;
-            font-size: 14px;
-            animation: pulse 1.5s infinite;
+            font-size: 10px;
+            margin-left: 5px;
         }
         
         @keyframes pulse {
@@ -354,21 +344,9 @@
             50% { opacity: 1; }
             100% { opacity: 0.6; }
         }
-
-        @media (max-height: 800px) {
-            .app-container {
-                height: 667px;
-            }
-            .screen {
-                height: 420px;
-            }
-            .bank-card {
-                height: 150px;
-                padding: 10px;
-            }
-            .keypad {
-                height: 220px;
-            }
+        
+        .loading {
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
@@ -386,12 +364,10 @@
                     <button class="currency-btn active" onclick="setCurrency('USD')">USD</button>
                     <button class="currency-btn" onclick="setCurrency('EUR')">EUR</button>
                 </div>
-                <div class="scroll-container" id="scroll-container">
-                    <div class="results-container">
-                        <div class="results-content" id="results-content">
-                            <div class="results" id="results">
-                                <div class="loading">Завантаження курсів...</div>
-                            </div>
+                <div class="results-wrapper">
+                    <div class="results-container" id="results-container">
+                        <div class="results" id="results">
+                            <div class="loading">Завантаження курсів...</div>
                         </div>
                     </div>
                 </div>
@@ -449,18 +425,6 @@
         let lastMonobankUpdate = 0;
         const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000;
 
-        // Custom scroll variables
-        let startY = 0;
-        let currentY = 0;
-        let scrollY = 0;
-        let isDragging = false;
-        let animationFrame;
-        let velocity = 0;
-        let lastTime = 0;
-        let lastY = 0;
-        const friction = 0.92;
-        const snapThreshold = 50;
-
         document.addEventListener('contextmenu', function(e) {
             e.preventDefault();
         });
@@ -469,154 +433,55 @@
             e.preventDefault();
         });
 
-        function initCustomScroll() {
-            const container = document.getElementById('scroll-container');
-            const content = document.getElementById('results-content');
-            const results = document.getElementById('results');
-            
-            // Set initial height
-            updateContentHeight();
-            
-            // Touch events
-            container.addEventListener('touchstart', handleTouchStart, { passive: false });
-            container.addEventListener('touchmove', handleTouchMove, { passive: false });
-            container.addEventListener('touchend', handleTouchEnd, { passive: false });
-            
-            function updateContentHeight() {
-                const containerHeight = container.clientHeight;
-                const resultsHeight = results.clientHeight;
-                content.style.height = `${resultsHeight}px`;
-            }
-            
-            function handleTouchStart(e) {
-                isDragging = true;
-                startY = e.touches[0].clientY;
-                currentY = startY;
-                lastY = startY;
-                lastTime = performance.now();
-                velocity = 0;
-                cancelAnimationFrame(animationFrame);
-                e.preventDefault();
-            }
-            
-            function handleTouchMove(e) {
-                if (!isDragging) return;
-                
-                const y = e.touches[0].clientY;
-                const deltaY = y - currentY;
-                
-                scrollY -= deltaY;
-                applyScroll();
-                
-                // Calculate velocity for momentum scrolling
-                const time = performance.now();
-                const deltaTime = time - lastTime;
-                
-                if (deltaTime > 0) {
-                    velocity = (y - lastY) / deltaTime;
-                    lastY = y;
-                    lastTime = time;
+        function initScroll() {
+            const container = document.getElementById('results-container');
+            let isScrolling = false;
+            let scrollTimeout;
+
+            container.addEventListener('scroll', function() {
+                if (!isScrolling) {
+                    isScrolling = true;
+                    updateActiveCard();
+                    
+                    clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(() => {
+                        snapToNearestCard();
+                        isScrolling = false;
+                    }, 100);
                 }
-                
-                currentY = y;
-                e.preventDefault();
-            }
-            
-            function handleTouchEnd() {
-                isDragging = false;
-                
-                // Apply momentum scrolling
-                if (Math.abs(velocity) > 0.1) {
-                    animateMomentum();
-                } else {
-                    snapToNearest();
-                }
-            }
-            
-            function applyScroll() {
-                const containerHeight = container.clientHeight;
-                const contentHeight = content.clientHeight;
-                
-                // Apply boundaries
-                if (scrollY > 0) {
-                    scrollY = 0;
-                } else if (scrollY < containerHeight - contentHeight) {
-                    scrollY = containerHeight - contentHeight;
-                }
-                
-                content.style.transform = `translateY(${scrollY}px)`;
-                updateActiveCard();
-            }
-            
-            function animateMomentum() {
-                velocity *= friction;
-                scrollY += velocity * 16;
-                
-                applyScroll();
-                
-                if (Math.abs(velocity) > 0.1) {
-                    animationFrame = requestAnimationFrame(animateMomentum);
-                } else {
-                    snapToNearest();
-                }
-            }
-            
-            function snapToNearest() {
+            });
+
+            function snapToNearestCard() {
                 const cards = document.querySelectorAll('.bank-card');
-                if (cards.length === 0) return;
-                
+                if (!cards.length) return;
+
+                const containerRect = container.getBoundingClientRect();
                 let closestCard = null;
                 let minDistance = Infinity;
-                const containerRect = container.getBoundingClientRect();
-                const containerCenter = containerRect.top + containerRect.height / 2;
-                
+
                 cards.forEach(card => {
                     const cardRect = card.getBoundingClientRect();
-                    const cardCenter = cardRect.top + cardRect.height / 2;
-                    const distance = Math.abs(cardCenter - containerCenter);
+                    const distance = Math.abs(cardRect.top - containerRect.top);
                     
                     if (distance < minDistance) {
                         minDistance = distance;
                         closestCard = card;
                     }
                 });
-                
+
                 if (closestCard) {
-                    const cardRect = closestCard.getBoundingClientRect();
-                    const targetScroll = scrollY + (cardRect.top - containerRect.top) - (containerRect.height - cardRect.height) / 2;
-                    
-                    // Smooth scroll to target position
-                    const startScroll = scrollY;
-                    const distance = targetScroll - startScroll;
-                    const duration = 300;
-                    let startTime = null;
-                    
-                    function animateScroll(timestamp) {
-                        if (!startTime) startTime = timestamp;
-                        const progress = timestamp - startTime;
-                        const percentage = Math.min(progress / duration, 1);
-                        
-                        scrollY = startScroll + distance * easeOutCubic(percentage);
-                        applyScroll();
-                        
-                        if (percentage < 1) {
-                            animationFrame = requestAnimationFrame(animateScroll);
-                        }
-                    }
-                    
-                    animationFrame = requestAnimationFrame(animateScroll);
+                    closestCard.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest'
+                    });
                 }
             }
-            
-            function easeOutCubic(t) {
-                return 1 - Math.pow(1 - t, 3);
-            }
-            
+
             function updateActiveCard() {
                 const cards = document.querySelectorAll('.bank-card');
                 const containerRect = container.getBoundingClientRect();
                 const containerCenter = containerRect.top + containerRect.height / 2;
-                
+
                 cards.forEach(card => {
                     card.classList.remove('active');
                     const cardRect = card.getBoundingClientRect();
@@ -627,6 +492,8 @@
                     }
                 });
             }
+
+            updateActiveCard();
         }
 
         async function loadExchangeRates() {
@@ -888,14 +755,8 @@
                 resultsDiv.innerHTML = resultsHTML;
                 document.getElementById('last-updated').textContent = `Оновлено: ${new Date().toLocaleTimeString()}`;
                 
-                // Update scroll content height and reset position
-                setTimeout(() => {
-                    const content = document.getElementById('results-content');
-                    const results = document.getElementById('results');
-                    content.style.height = `${results.clientHeight}px`;
-                    scrollY = 0;
-                    content.style.transform = 'translateY(0)';
-                }, 50);
+                // Ініціалізуємо скролінг після оновлення контенту
+                setTimeout(initScroll, 50);
                 
             } catch (error) {
                 console.error('Помилка розрахунку:', error);
@@ -955,7 +816,6 @@
             currentCurrency = 'USD';
             updateDisplay();
             loadExchangeRates();
-            initCustomScroll();
         });
     </script>
 </body>
