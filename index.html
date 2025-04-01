@@ -20,10 +20,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             padding: 10px;
-            touch-action: manipulation;
+            touch-action: pan-y;
         }
         
         .app-container {
@@ -31,12 +31,14 @@
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 400px;
+            max-width: 100%;
+            height: 100%;
+            padding: 10px;
         }
         
         .app-title {
             color: #333;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
             margin-bottom: 10px;
             text-align: center;
@@ -46,11 +48,14 @@
         .phone {
             width: 100%;
             max-width: 340px;
+            height: auto;
+            max-height: 90vh;
             background: linear-gradient(145deg, #3a3a3a, #2d2d2d);
             border-radius: 30px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             color: white;
+            overflow: hidden;
         }
         
         .screen {
@@ -58,7 +63,8 @@
             padding: 15px;
             border-radius: 15px;
             margin-bottom: 15px;
-            height: 380px;
+            height: calc(100% - 240px);
+            min-height: 300px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -139,32 +145,45 @@
         }
         
         .results-container::-webkit-scrollbar {
-            display: none;
+            width: 4px;
         }
         
-        .amount-title {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: #ccc;
-            font-weight: bold;
-            text-align: center;
+        .results-container::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 2px;
+        }
+        
+        .results-container::-webkit-scrollbar-thumb {
+            background: #ff9500;
+            border-radius: 2px;
+        }
+        
+        .results-content {
+            position: relative;
+            padding-top: 10px;
+        }
+        
+        .bank-slider {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
         
         .bank-card {
             border-radius: 12px;
             padding: 15px;
-            margin-bottom: 15px;
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
             scroll-snap-align: start;
-            height: 180px;
+            height: 170px;
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
             transition: transform 0.3s;
+            flex-shrink: 0;
         }
         
         .bank-card:active {
-            transform: translateY(-3px);
+            transform: scale(0.98);
         }
         
         .monobank-card {
@@ -192,8 +211,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 15px;
-            font-size: 18px;
+            margin-bottom: 10px;
+            font-size: 16px;
             font-weight: bold;
         }
         
@@ -250,11 +269,12 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 10px;
+            margin-top: 15px;
         }
         
         button {
-            padding: 16px 0;
-            font-size: 20px;
+            padding: 15px 0;
+            font-size: 18px;
             border: none;
             border-radius: 12px;
             background-color: #444;
@@ -267,6 +287,7 @@
         
         button:active {
             transform: translateY(1px);
+            opacity: 0.9;
         }
         
         button.operator {
@@ -287,12 +308,6 @@
             color: #aaa;
             text-align: center;
             margin-top: 10px;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #ff9500;
         }
         
         .refresh-btn {
@@ -339,14 +354,35 @@
             margin-left: 5px;
         }
         
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #ff9500;
+            animation: pulse 1.5s infinite;
+        }
+        
         @keyframes pulse {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
             100% { opacity: 0.6; }
         }
-        
-        .loading {
-            animation: pulse 1.5s infinite;
+
+        @media (max-height: 700px) {
+            .phone {
+                max-height: 95vh;
+            }
+            .screen {
+                height: calc(100% - 200px);
+                min-height: 250px;
+            }
+            .bank-card {
+                height: 150px;
+                padding: 12px;
+            }
+            .keypad button {
+                padding: 12px 0;
+                font-size: 16px;
+            }
         }
     </style>
 </head>
@@ -366,8 +402,11 @@
                 </div>
                 <div class="results-wrapper">
                     <div class="results-container" id="results-container">
-                        <div class="results" id="results">
-                            <div class="loading">Завантаження курсів...</div>
+                        <div class="results-content" id="results-content">
+                            <div class="amount-title" id="amount-title">1 $ =</div>
+                            <div class="bank-slider" id="results">
+                                <div class="loading">Завантаження курсів...</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -425,50 +464,50 @@
         let lastMonobankUpdate = 0;
         const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000;
 
-        document.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-        });
-
-        document.addEventListener('selectstart', function(e) {
-            e.preventDefault();
-        });
-
+        // Ініціалізація прокрутки
         function initScroll() {
             const container = document.getElementById('results-container');
-            let isScrolling = false;
-            let scrollTimeout;
-
-            container.addEventListener('scroll', function() {
-                if (!isScrolling) {
-                    isScrolling = true;
-                    updateActiveCard();
-                    
-                    clearTimeout(scrollTimeout);
-                    scrollTimeout = setTimeout(() => {
-                        snapToNearestCard();
-                        isScrolling = false;
-                    }, 100);
-                }
-            });
-
+            let startY, scrollTop, isScrolling;
+            
+            container.addEventListener('touchstart', (e) => {
+                startY = e.touches[0].clientY;
+                scrollTop = container.scrollTop;
+                isScrolling = true;
+            }, { passive: true });
+            
+            container.addEventListener('touchmove', (e) => {
+                if (!isScrolling) return;
+                const y = e.touches[0].clientY;
+                const walk = (y - startY) * 1.5; // Чутливість прокрутки
+                container.scrollTop = scrollTop - walk;
+            }, { passive: true });
+            
+            container.addEventListener('touchend', () => {
+                isScrolling = false;
+                snapToNearestCard();
+            }, { passive: true });
+            
             function snapToNearestCard() {
                 const cards = document.querySelectorAll('.bank-card');
                 if (!cards.length) return;
-
+                
                 const containerRect = container.getBoundingClientRect();
+                const containerCenter = containerRect.top + containerRect.height / 2;
+                
                 let closestCard = null;
                 let minDistance = Infinity;
-
+                
                 cards.forEach(card => {
                     const cardRect = card.getBoundingClientRect();
-                    const distance = Math.abs(cardRect.top - containerRect.top);
+                    const cardCenter = cardRect.top + cardRect.height / 2;
+                    const distance = Math.abs(cardCenter - containerCenter);
                     
                     if (distance < minDistance) {
                         minDistance = distance;
                         closestCard = card;
                     }
                 });
-
+                
                 if (closestCard) {
                     closestCard.scrollIntoView({
                         behavior: 'smooth',
@@ -476,24 +515,6 @@
                     });
                 }
             }
-
-            function updateActiveCard() {
-                const cards = document.querySelectorAll('.bank-card');
-                const containerRect = container.getBoundingClientRect();
-                const containerCenter = containerRect.top + containerRect.height / 2;
-
-                cards.forEach(card => {
-                    card.classList.remove('active');
-                    const cardRect = card.getBoundingClientRect();
-                    const cardCenter = cardRect.top + cardRect.height / 2;
-                    
-                    if (Math.abs(cardCenter - containerCenter) < cardRect.height / 2) {
-                        card.classList.add('active');
-                    }
-                });
-            }
-
-            updateActiveCard();
         }
 
         async function loadExchangeRates() {
@@ -717,8 +738,10 @@
                     throw new Error('Невірне число');
                 }
                 
+                document.getElementById('amount-title').textContent = `${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =`;
+                
                 const resultsDiv = document.getElementById('results');
-                let resultsHTML = `<div class="amount-title">${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =</div>`;
+                let resultsHTML = '';
                 
                 const monobankTimeLeft = Math.max(0, MONOBANK_UPDATE_INTERVAL - (Date.now() - lastMonobankUpdate));
                 const monobankUpdateMsg = monobankTimeLeft > 0 ? 
@@ -816,6 +839,7 @@
             currentCurrency = 'USD';
             updateDisplay();
             loadExchangeRates();
+            initScroll();
         });
     </script>
 </body>
