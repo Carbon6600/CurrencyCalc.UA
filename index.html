@@ -38,7 +38,7 @@
         .phone {
             width: 100%;
             max-width: 380px;
-            min-height: 740px; /* Збільшено висоту телефону */
+            min-height: 740px;
             background: linear-gradient(145deg, #3a3a3a, #2d2d2d);
             border-radius: 35px;
             padding: 20px;
@@ -82,7 +82,7 @@
         .input-display {
             font-size: 32px;
             text-align: right;
-            padding: 12px 110px 12px 12px; /* Збільшено правий відступ */
+            padding: 12px 110px 12px 12px;
             background-color: #2a2a2a;
             border-radius: 12px;
             flex-grow: 1;
@@ -102,17 +102,12 @@
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            background-color: #444;
+            background-color: #ff9500;
             color: white;
             transition: all 0.3s;
             font-size: 16px;
             text-align: center;
-            min-width: 60px; /* Збільшено ширину */
-        }
-        
-        .currency-toggle.active {
-            background-color: #ff9500;
-            color: white;
+            min-width: 60px;
             box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
         }
         
@@ -158,16 +153,16 @@
         .bank-slider {
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            padding-bottom: 10px; /* Додано відступ знизу */
+            gap: 10px;
+            padding-bottom: 10px;
         }
         
         .bank-card {
             border-radius: 15px;
-            padding: 15px;
+            padding: 12px;
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
             scroll-snap-align: start;
-            height: 160px; /* Збільшено висоту картки */
+            height: 140px;
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
@@ -198,6 +193,11 @@
             background: linear-gradient(135deg, #0057b8 0%, #0070ff 100%);
             border-left: 5px solid #ffd700;
         }
+
+        .test-card {
+            background: linear-gradient(135deg, #555555 0%, #333333 100%);
+            border-left: 5px solid #aaaaaa;
+        }
         
         .bank-card.error {
             background: #2a2a2a;
@@ -209,23 +209,28 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 10px;
-            font-size: 18px;
+            margin-bottom: 6px;
+            font-size: 16px;
             font-weight: bold;
         }
         
         .bank-logo {
-            width: 30px;
-            height: 30px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 12px;
-            font-size: 14px;
+            margin-right: 10px;
+            font-size: 13px;
             font-weight: bold;
             color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .test-logo {
+            background-color: rgba(255,255,255,0.3);
+            border: 2px solid #fff;
         }
         
         .monobank-logo { 
@@ -256,9 +261,31 @@
         .rate-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
+            font-size: 13px;
+            padding: 3px 0;
+        }
+
+        .rate-row.old-style {
             font-size: 15px;
             padding: 5px 0;
+            margin-bottom: 8px;
+            color: #ff9500;
+        }
+
+        .rate-row.new-style {
+            font-size: 13px;
+            padding: 3px 0;
+            margin-bottom: 5px;
+            color: #4CAF50;
+        }
+
+        .rate-row.spacing-comparison {
+            font-size: 13px;
+            padding: 3px 0;
+            margin-bottom: 5px;
+            border-top: 1px dashed #aaa;
+            padding-top: 6px;
         }
         
         .rate-value {
@@ -270,22 +297,22 @@
         .controls-row {
             display: flex;
             justify-content: space-between;
-            margin-top: 10px;
+            margin-top: 8px;
         }
         
         .bottom-currency-toggle {
-            padding: 10px 5px;
+            padding: 8px 5px;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
             background-color: #444;
             color: white;
             transition: all 0.3s;
-            font-size: 16px;
+            font-size: 14px;
             text-align: center;
             flex-grow: 1;
-            margin: 0 5px;
+            margin: 0 4px;
         }
         
         .bottom-currency-toggle.active {
@@ -297,15 +324,15 @@
         .keypad {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
+            gap: 10px;
             margin-top: 15px;
         }
         
         button {
-            padding: 16px 0;
-            font-size: 20px;
+            padding: 14px 0;
+            font-size: 18px;
             border: none;
-            border-radius: 15px;
+            border-radius: 12px;
             background-color: #444;
             color: white;
             cursor: pointer;
@@ -333,61 +360,61 @@
         }
         
         .last-updated {
-            font-size: 12px;
+            font-size: 11px;
             color: #aaa;
             text-align: center;
-            margin-top: 10px;
+            margin-top: 8px;
         }
         
         .refresh-btn {
             background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            padding: 10px;
-            font-size: 16px;
+            padding: 8px;
+            font-size: 14px;
             border: none;
             color: white;
-            border-radius: 10px;
+            border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .error-message {
             color: #ff5555;
             text-align: center;
-            padding: 5px;
-            font-size: 12px;
+            padding: 4px;
+            font-size: 11px;
             font-weight: bold;
-            margin-top: 5px;
+            margin-top: 4px;
         }
         
         .static-data-message {
             color: #ff9500;
-            font-size: 12px;
+            font-size: 11px;
             text-align: center;
-            margin-top: 5px;
+            margin-top: 4px;
             font-style: italic;
         }
         
         .update-info {
             color: #aaa;
-            font-size: 11px;
+            font-size: 10px;
             text-align: center;
-            margin-top: 5px;
+            margin-top: 4px;
         }
         
         .cashless-message {
             color: #fff;
             background-color: rgba(0,0,0,0.2);
-            padding: 3px 5px;
-            border-radius: 4px;
-            font-size: 11px;
-            margin-left: 6px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 5px;
         }
         
         .loading {
             text-align: center;
-            padding: 25px;
+            padding: 20px;
             color: #ff9500;
             animation: pulse 1.5s infinite;
-            font-size: 16px;
+            font-size: 14px;
         }
         
         @keyframes pulse {
@@ -401,12 +428,12 @@
                 min-height: 680px;
             }
             .bank-card {
-                height: 150px;
-                padding: 12px;
+                height: 135px;
+                padding: 10px;
             }
             .keypad button {
-                padding: 14px 0;
-                font-size: 18px;
+                padding: 12px 0;
+                font-size: 16px;
             }
         }
     </style>
@@ -425,6 +452,47 @@
                         <div class="results-content" id="results-content">
                             <div class="amount-title" id="amount-title">1 USD =</div>
                             <div class="bank-slider" id="results">
+                                <!-- Тестова картка для порівняння -->
+                                <div class="bank-card test-card">
+                                    <div class="bank-header">
+                                        <div class="bank-logo test-logo">Т</div>
+                                        <div>Тестовий банк <span class="static-data-message">(порівняння)</span></div>
+                                    </div>
+                                    <div class="rate-row old-style">
+                                        <span>Старий стиль (15px):</span>
+                                        <span class="rate-value">40.25 ₴</span>
+                                    </div>
+                                    <div class="rate-row new-style">
+                                        <span>Новий стиль (13px):</span>
+                                        <span class="rate-value">40.25 ₴</span>
+                                    </div>
+                                    <div class="rate-row spacing-comparison">
+                                        <span>Менший відступ</span>
+                                        <span class="rate-value">38.50 ₴</span>
+                                    </div>
+                                    <div class="update-info">Картка: 140px (було 160px)</div>
+                                </div>
+                                
+                                <!-- Інші картки банків -->
+                                <div class="bank-card monobank-card">
+                                    <div class="bank-header">
+                                        <div class="bank-logo monobank-logo">M</div>
+                                        <div>Monobank</div>
+                                    </div>
+                                    <div class="rate-row">
+                                        <span>UAH купівля:</span>
+                                        <span class="rate-value">37.25 ₴</span>
+                                    </div>
+                                    <div class="rate-row">
+                                        <span>UAH продаж:</span>
+                                        <span class="rate-value">38.35 ₴</span>
+                                    </div>
+                                    <div class="rate-row">
+                                        <span>EUR:</span>
+                                        <span class="rate-value">0.92 €</span>
+                                    </div>
+                                </div>
+                                
                                 <div class="loading">Завантаження курсів...</div>
                             </div>
                         </div>
@@ -702,11 +770,9 @@
         }
         
         function updateCurrencyButtons() {
-            // Update top toggle button
             const toggleBtn = document.getElementById('currency-toggle');
             toggleBtn.textContent = currencyNames[currentCurrency];
             
-            // Update bottom currency buttons
             const bottomButtons = document.querySelectorAll('.bottom-currency-toggle');
             bottomButtons.forEach(btn => {
                 btn.classList.remove('active');
@@ -715,7 +781,6 @@
                 }
             });
             
-            // Update amount title
             document.getElementById('amount-title').textContent = `${parseFloat(currentDisplay).toFixed(2)} ${currencyNames[currentCurrency]} =`;
         }
         
@@ -890,7 +955,6 @@
             currentCurrency = 'USD';
             updateDisplay();
             
-            // Add click handler for top currency toggle
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
             loadExchangeRates();
