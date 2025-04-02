@@ -168,6 +168,7 @@
             overflow: hidden;
             transition: transform 0.3s;
             flex-shrink: 0;
+            touch-action: manipulation;
         }
         
         .bank-card:active {
@@ -265,28 +266,6 @@
             font-size: 13px;
             padding: 3px 0;
         }
-
-        .rate-row.old-style {
-            font-size: 15px;
-            padding: 5px 0;
-            margin-bottom: 8px;
-            color: #ff9500;
-        }
-
-        .rate-row.new-style {
-            font-size: 13px;
-            padding: 3px 0;
-            margin-bottom: 5px;
-            color: #4CAF50;
-        }
-
-        .rate-row.spacing-comparison {
-            font-size: 13px;
-            padding: 3px 0;
-            margin-bottom: 5px;
-            border-top: 1px dashed #aaa;
-            padding-top: 6px;
-        }
         
         .rate-value {
             font-weight: bold;
@@ -298,27 +277,6 @@
             display: flex;
             justify-content: space-between;
             margin-top: 8px;
-        }
-        
-        .bottom-currency-toggle {
-            padding: 8px 5px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            background-color: #444;
-            color: white;
-            transition: all 0.3s;
-            font-size: 14px;
-            text-align: center;
-            flex-grow: 1;
-            margin: 0 4px;
-        }
-        
-        .bottom-currency-toggle.active {
-            background-color: #ff9500;
-            color: white;
-            box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
         }
         
         .keypad {
@@ -452,47 +410,6 @@
                         <div class="results-content" id="results-content">
                             <div class="amount-title" id="amount-title">1 USD =</div>
                             <div class="bank-slider" id="results">
-                                <!-- Тестова картка для порівняння -->
-                                <div class="bank-card test-card">
-                                    <div class="bank-header">
-                                        <div class="bank-logo test-logo">Т</div>
-                                        <div>Тестовий банк <span class="static-data-message">(порівняння)</span></div>
-                                    </div>
-                                    <div class="rate-row old-style">
-                                        <span>Старий стиль (15px):</span>
-                                        <span class="rate-value">40.25 ₴</span>
-                                    </div>
-                                    <div class="rate-row new-style">
-                                        <span>Новий стиль (13px):</span>
-                                        <span class="rate-value">40.25 ₴</span>
-                                    </div>
-                                    <div class="rate-row spacing-comparison">
-                                        <span>Менший відступ</span>
-                                        <span class="rate-value">38.50 ₴</span>
-                                    </div>
-                                    <div class="update-info">Картка: 140px (було 160px)</div>
-                                </div>
-                                
-                                <!-- Інші картки банків -->
-                                <div class="bank-card monobank-card">
-                                    <div class="bank-header">
-                                        <div class="bank-logo monobank-logo">M</div>
-                                        <div>Monobank</div>
-                                    </div>
-                                    <div class="rate-row">
-                                        <span>UAH купівля:</span>
-                                        <span class="rate-value">37.25 ₴</span>
-                                    </div>
-                                    <div class="rate-row">
-                                        <span>UAH продаж:</span>
-                                        <span class="rate-value">38.35 ₴</span>
-                                    </div>
-                                    <div class="rate-row">
-                                        <span>EUR:</span>
-                                        <span class="rate-value">0.92 €</span>
-                                    </div>
-                                </div>
-                                
                                 <div class="loading">Завантаження курсів...</div>
                             </div>
                         </div>
@@ -501,11 +418,6 @@
                 <div class="controls-row">
                     <button class="refresh-btn" onclick="loadExchangeRates()">Оновити курси</button>
                     <div class="last-updated" id="last-updated"></div>
-                </div>
-                <div class="controls-row">
-                    <button class="bottom-currency-toggle" onclick="setCurrency('UAH')">ГРН</button>
-                    <button class="bottom-currency-toggle active" onclick="setCurrency('USD')">USD</button>
-                    <button class="bottom-currency-toggle" onclick="setCurrency('EUR')">EUR</button>
                 </div>
             </div>
             
@@ -567,30 +479,36 @@
         let isFirstInput = true;
         let lastMonobankUpdate = 0;
         const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000;
+        let isScrollingEnabled = true;
 
         function initScroll() {
             const container = document.getElementById('results-container');
-            let startY, scrollTop, isScrolling;
+            let startY, scrollTop, isDragging;
             
             container.addEventListener('touchstart', (e) => {
+                if (!isScrollingEnabled) return;
+                
                 startY = e.touches[0].clientY;
                 scrollTop = container.scrollTop;
-                isScrolling = true;
+                isDragging = true;
             }, { passive: true });
             
             container.addEventListener('touchmove', (e) => {
-                if (!isScrolling) return;
+                if (!isDragging || !isScrollingEnabled) return;
                 const y = e.touches[0].clientY;
                 const walk = (y - startY) * 1.5;
                 container.scrollTop = scrollTop - walk;
             }, { passive: true });
             
             container.addEventListener('touchend', () => {
-                isScrolling = false;
+                if (!isDragging || !isScrollingEnabled) return;
+                isDragging = false;
                 snapToNearestCard();
             }, { passive: true });
             
             function snapToNearestCard() {
+                if (!isScrollingEnabled) return;
+                
                 const cards = document.querySelectorAll('.bank-card');
                 if (!cards.length) return;
                 
@@ -657,7 +575,9 @@
             try {
                 const proxyUrls = [
                     'https://api.allorigins.win/raw?url=',
-                    'https://corsproxy.io/?'
+                    'https://corsproxy.io/?',
+                    'https://cors-anywhere.herokuapp.com/',
+                    'https://yacdn.org/proxy/'
                 ];
                 
                 const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?exchange&json&coursid=11';
@@ -711,40 +631,68 @@
 
         async function loadMonobankRates() {
             try {
-                const response = await fetch('https://api.monobank.ua/bank/currency');
+                const proxyUrls = [
+                    'https://api.allorigins.win/raw?url=',
+                    'https://corsproxy.io/?',
+                    'https://cors-anywhere.herokuapp.com/',
+                    'https://yacdn.org/proxy/'
+                ];
                 
-                if (!response.ok) throw new Error('Не вдалося отримати курси Monobank');
-                if (response.status === 429) {
-                    throw new Error('Досягнуто ліміт запитів до Monobank');
+                const targetUrl = 'https://api.monobank.ua/bank/currency';
+                
+                let success = false;
+                
+                for (const proxyUrl of proxyUrls) {
+                    try {
+                        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+                        
+                        if (!response.ok) continue;
+                        if (response.status === 429) {
+                            throw new Error('Досягнуто ліміт запитів до Monobank');
+                        }
+                        
+                        const data = await response.json();
+                        
+                        const usdRate = data.find(rate => 
+                            rate.currencyCodeA === currencyCodes.USD && 
+                            rate.currencyCodeB === currencyCodes.UAH
+                        );
+                        
+                        if (usdRate) {
+                            exchangeRates.monobank.USD = {
+                                buy: usdRate.rateBuy,
+                                sell: usdRate.rateSell
+                            };
+                        }
+                        
+                        const eurRate = data.find(rate => 
+                            rate.currencyCodeA === currencyCodes.EUR && 
+                            rate.currencyCodeB === currencyCodes.UAH
+                        );
+                        
+                        if (eurRate) {
+                            exchangeRates.monobank.EUR = {
+                                buy: eurRate.rateBuy,
+                                sell: eurRate.rateSell
+                            };
+                        }
+                        
+                        monobankAvailable = true;
+                        success = true;
+                        break;
+                        
+                    } catch (proxyError) {
+                        console.error(`Помилка з проксі ${proxyUrl}:`, proxyError);
+                    }
                 }
                 
-                const data = await response.json();
-                
-                const usdRate = data.find(rate => 
-                    rate.currencyCodeA === currencyCodes.USD && 
-                    rate.currencyCodeB === currencyCodes.UAH
-                );
-                
-                if (usdRate) {
-                    exchangeRates.monobank.USD = {
-                        buy: usdRate.rateBuy,
-                        sell: usdRate.rateSell
-                    };
+                if (!success) {
+                    throw new Error('Усі проксі не вдалося використати');
                 }
-                
-                const eurRate = data.find(rate => 
-                    rate.currencyCodeA === currencyCodes.EUR && 
-                    rate.currencyCodeB === currencyCodes.UAH
-                );
-                
-                if (eurRate) {
-                    exchangeRates.monobank.EUR = {
-                        buy: eurRate.rateBuy,
-                        sell: eurRate.rateSell
-                    };
-                }
-                
-                monobankAvailable = true;
                 
             } catch (error) {
                 console.error('Помилка завантаження курсів Monobank:', error);
@@ -772,14 +720,6 @@
         function updateCurrencyButtons() {
             const toggleBtn = document.getElementById('currency-toggle');
             toggleBtn.textContent = currencyNames[currentCurrency];
-            
-            const bottomButtons = document.querySelectorAll('.bottom-currency-toggle');
-            bottomButtons.forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.textContent === currencyNames[currentCurrency]) {
-                    btn.classList.add('active');
-                }
-            });
             
             document.getElementById('amount-title').textContent = `${parseFloat(currentDisplay).toFixed(2)} ${currencyNames[currentCurrency]} =`;
         }
@@ -898,6 +838,15 @@
                 
                 resultsDiv.innerHTML = resultsHTML;
                 document.getElementById('last-updated').textContent = `Оновлено: ${new Date().toLocaleTimeString()}`;
+                
+                // Add click handlers to prevent scrolling on tap
+                const cards = document.querySelectorAll('.bank-card');
+                cards.forEach(card => {
+                    card.addEventListener('touchstart', (e) => {
+                        isScrollingEnabled = false;
+                        setTimeout(() => { isScrollingEnabled = true; }, 300);
+                    }, { passive: true });
+                });
                 
                 setTimeout(initScroll, 50);
                 
