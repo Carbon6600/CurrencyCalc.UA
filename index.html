@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CurrencyCalc.UA - Валютний калькулятор</title>
+    <title>CurrencyCalc.UA</title>
     <style>
         * {
             -webkit-user-select: none;
@@ -27,44 +27,46 @@
         }
         
         .app-container {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
-            width: 100%;
-            max-width: 100%;
-            height: 100%;
-            padding: 10px;
-        }
-        
-        .app-title {
-            color: #333;
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-align: center;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
         
         .phone {
             width: 100%;
-            max-width: 340px;
-            height: auto;
-            max-height: 90vh;
+            max-width: 380px;
+            min-height: 740px; /* Збільшено висоту телефону */
             background: linear-gradient(145deg, #3a3a3a, #2d2d2d);
-            border-radius: 30px;
-            padding: 15px;
+            border-radius: 35px;
+            padding: 20px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
             color: white;
             overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .phone-brand {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 16px;
+            font-weight: bold;
         }
         
         .screen {
             background-color: #1e1e1e;
             padding: 15px;
-            border-radius: 15px;
-            margin-bottom: 15px;
-            height: calc(100% - 240px);
-            min-height: 300px;
+            border-radius: 20px;
+            margin: 40px 0 15px;
+            flex-grow: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -74,60 +76,51 @@
             display: flex;
             align-items: center;
             margin-bottom: 15px;
+            position: relative;
         }
         
         .input-display {
-            font-size: 28px;
+            font-size: 32px;
             text-align: right;
-            padding: 10px;
+            padding: 12px 110px 12px 12px; /* Збільшено правий відступ */
             background-color: #2a2a2a;
-            border-radius: 10px;
+            border-radius: 12px;
             flex-grow: 1;
-            margin-right: 10px;
             font-weight: bold;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
         
-        .currency-symbol {
-            font-size: 24px;
-            font-weight: bold;
-            width: 50px;
-            text-align: center;
-        }
-        
-        .currency-selector {
-            display: flex;
-            margin-bottom: 15px;
-            justify-content: space-between;
-            gap: 10px;
-        }
-        
-        .currency-btn {
-            padding: 10px 0;
+        .currency-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 8px 12px;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            flex-grow: 1;
-            text-align: center;
             background-color: #444;
             color: white;
             transition: all 0.3s;
+            font-size: 16px;
+            text-align: center;
+            min-width: 60px; /* Збільшено ширину */
         }
         
-        .currency-btn.active {
+        .currency-toggle.active {
             background-color: #ff9500;
             color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(255, 149, 0, 0.3);
+            box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
         }
         
         .results-wrapper {
             flex: 1;
             position: relative;
             overflow: hidden;
+            margin-bottom: 10px;
         }
         
         .results-container {
@@ -160,21 +153,21 @@
         
         .results-content {
             position: relative;
-            padding-top: 10px;
         }
         
         .bank-slider {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
+            padding-bottom: 10px; /* Додано відступ знизу */
         }
         
         .bank-card {
-            border-radius: 12px;
+            border-radius: 15px;
             padding: 15px;
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
             scroll-snap-align: start;
-            height: 170px;
+            height: 160px; /* Збільшено висоту картки */
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
@@ -188,22 +181,27 @@
         
         .monobank-card {
             background: linear-gradient(135deg, #6f2c91 0%, #8e44ad 100%);
-            border-left: 4px solid #f39c12;
+            border-left: 5px solid #f39c12;
         }
         
         .privatbank-card {
             background: linear-gradient(135deg, #2e8b57 0%, #27ae60 100%);
-            border-left: 4px solid #f1c40f;
+            border-left: 5px solid #f1c40f;
         }
         
         .raiffeisen-card {
             background: linear-gradient(135deg, #ff6600 0%, #e67e22 100%);
-            border-left: 4px solid #e74c3c;
+            border-left: 5px solid #e74c3c;
+        }
+        
+        .ukreximbank-card {
+            background: linear-gradient(135deg, #0057b8 0%, #0070ff 100%);
+            border-left: 5px solid #ffd700;
         }
         
         .bank-card.error {
             background: #2a2a2a;
-            border-left: 4px solid #ff5555;
+            border-left: 5px solid #ff5555;
             opacity: 0.7;
         }
         
@@ -212,7 +210,7 @@
             align-items: center;
             justify-content: center;
             margin-bottom: 10px;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
         }
         
@@ -245,6 +243,11 @@
             border: 2px solid white;
         }
         
+        .ukreximbank-logo { 
+            background-color: rgba(255,255,255,0.2);
+            border: 2px solid white;
+        }
+        
         .error-logo {
             background-color: rgba(255,85,85,0.3);
             border: 2px solid #ff5555;
@@ -254,9 +257,8 @@
             display: flex;
             justify-content: space-between;
             margin-bottom: 8px;
-            font-size: 14px;
-            padding: 6px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 15px;
+            padding: 5px 0;
         }
         
         .rate-value {
@@ -265,18 +267,45 @@
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        
+        .bottom-currency-toggle {
+            padding: 10px 5px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            background-color: #444;
+            color: white;
+            transition: all 0.3s;
+            font-size: 16px;
+            text-align: center;
+            flex-grow: 1;
+            margin: 0 5px;
+        }
+        
+        .bottom-currency-toggle.active {
+            background-color: #ff9500;
+            color: white;
+            box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
+        }
+        
         .keypad {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
+            gap: 12px;
             margin-top: 15px;
         }
         
         button {
-            padding: 15px 0;
-            font-size: 18px;
+            padding: 16px 0;
+            font-size: 20px;
             border: none;
-            border-radius: 12px;
+            border-radius: 15px;
             background-color: #444;
             color: white;
             cursor: pointer;
@@ -312,12 +341,11 @@
         
         .refresh-btn {
             background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            margin-top: 10px;
             padding: 10px;
             font-size: 16px;
             border: none;
             color: white;
-            border-radius: 8px;
+            border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
@@ -348,17 +376,18 @@
         .cashless-message {
             color: #fff;
             background-color: rgba(0,0,0,0.2);
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-size: 10px;
-            margin-left: 5px;
+            padding: 3px 5px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 6px;
         }
         
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 25px;
             color: #ff9500;
             animation: pulse 1.5s infinite;
+            font-size: 16px;
         }
         
         @keyframes pulse {
@@ -369,49 +398,47 @@
 
         @media (max-height: 700px) {
             .phone {
-                max-height: 95vh;
-            }
-            .screen {
-                height: calc(100% - 200px);
-                min-height: 250px;
+                min-height: 680px;
             }
             .bank-card {
                 height: 150px;
                 padding: 12px;
             }
             .keypad button {
-                padding: 12px 0;
-                font-size: 16px;
+                padding: 14px 0;
+                font-size: 18px;
             }
         }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <div class="app-title">CurrencyCalc.UA</div>
         <div class="phone">
+            <div class="phone-brand">CurrencyCalc.UA</div>
             <div class="screen">
                 <div class="input-container">
                     <div class="input-display" id="display">1</div>
-                    <div class="currency-symbol" id="currency-symbol">$</div>
-                </div>
-                <div class="currency-selector">
-                    <button class="currency-btn" onclick="setCurrency('UAH')">ГРН</button>
-                    <button class="currency-btn active" onclick="setCurrency('USD')">USD</button>
-                    <button class="currency-btn" onclick="setCurrency('EUR')">EUR</button>
+                    <button class="currency-toggle" id="currency-toggle">USD</button>
                 </div>
                 <div class="results-wrapper">
                     <div class="results-container" id="results-container">
                         <div class="results-content" id="results-content">
-                            <div class="amount-title" id="amount-title">1 $ =</div>
+                            <div class="amount-title" id="amount-title">1 USD =</div>
                             <div class="bank-slider" id="results">
                                 <div class="loading">Завантаження курсів...</div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="last-updated" id="last-updated"></div>
-                <button class="refresh-btn" onclick="loadExchangeRates()">Оновити курси</button>
+                <div class="controls-row">
+                    <button class="refresh-btn" onclick="loadExchangeRates()">Оновити курси</button>
+                    <div class="last-updated" id="last-updated"></div>
+                </div>
+                <div class="controls-row">
+                    <button class="bottom-currency-toggle" onclick="setCurrency('UAH')">ГРН</button>
+                    <button class="bottom-currency-toggle active" onclick="setCurrency('USD')">USD</button>
+                    <button class="bottom-currency-toggle" onclick="setCurrency('EUR')">EUR</button>
+                </div>
             </div>
             
             <div class="keypad">
@@ -445,18 +472,27 @@
             EUR: '€'
         };
 
+        const currencyNames = {
+            UAH: 'ГРН',
+            USD: 'USD',
+            EUR: 'EUR'
+        };
+
         const currencyCodes = {
             USD: 840,
             EUR: 978,
             UAH: 980
         };
 
+        const currencyOrder = ['UAH', 'USD', 'EUR'];
+        
         let currentDisplay = '1';
         let currentCurrency = 'USD';
         let exchangeRates = {
             privatbank: { USD: {}, EUR: {} },
             monobank: { USD: {}, EUR: {} },
-            raiffeisen: { USD: { buy: 37.15, sell: 38.45 }, EUR: { buy: 40.05, sell: 41.35 } }
+            raiffeisen: { USD: { buy: 37.15, sell: 38.45 }, EUR: { buy: 40.05, sell: 41.35 } },
+            ukreximbank: { USD: { buy: 37.10, sell: 38.30 }, EUR: { buy: 40.00, sell: 41.20 } }
         };
         let privatbankAvailable = false;
         let monobankAvailable = false;
@@ -464,7 +500,6 @@
         let lastMonobankUpdate = 0;
         const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000;
 
-        // Ініціалізація прокрутки
         function initScroll() {
             const container = document.getElementById('results-container');
             let startY, scrollTop, isScrolling;
@@ -478,7 +513,7 @@
             container.addEventListener('touchmove', (e) => {
                 if (!isScrolling) return;
                 const y = e.touches[0].clientY;
-                const walk = (y - startY) * 1.5; // Чутливість прокрутки
+                const walk = (y - startY) * 1.5;
                 container.scrollTop = scrollTop - walk;
             }, { passive: true });
             
@@ -515,6 +550,12 @@
                     });
                 }
             }
+        }
+
+        function cycleCurrency() {
+            const currentIndex = currencyOrder.indexOf(currentCurrency);
+            const nextIndex = (currentIndex + 1) % currencyOrder.length;
+            setCurrency(currencyOrder[nextIndex]);
         }
 
         async function loadExchangeRates() {
@@ -657,19 +698,25 @@
 
         function updateDisplay() {
             document.getElementById('display').textContent = currentDisplay;
-            document.getElementById('currency-symbol').textContent = currencySymbols[currentCurrency];
             updateCurrencyButtons();
         }
         
         function updateCurrencyButtons() {
-            const buttons = document.querySelectorAll('.currency-btn');
-            buttons.forEach(btn => {
+            // Update top toggle button
+            const toggleBtn = document.getElementById('currency-toggle');
+            toggleBtn.textContent = currencyNames[currentCurrency];
+            
+            // Update bottom currency buttons
+            const bottomButtons = document.querySelectorAll('.bottom-currency-toggle');
+            bottomButtons.forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.textContent === currentCurrency || 
-                    (btn.textContent === 'ГРН' && currentCurrency === 'UAH')) {
+                if (btn.textContent === currencyNames[currentCurrency]) {
                     btn.classList.add('active');
                 }
             });
+            
+            // Update amount title
+            document.getElementById('amount-title').textContent = `${parseFloat(currentDisplay).toFixed(2)} ${currencyNames[currentCurrency]} =`;
         }
         
         function appendToDisplay(value) {
@@ -738,7 +785,7 @@
                     throw new Error('Невірне число');
                 }
                 
-                document.getElementById('amount-title').textContent = `${amount.toFixed(2)} ${currencySymbols[currentCurrency]} =`;
+                document.getElementById('amount-title').textContent = `${amount.toFixed(2)} ${currencyNames[currentCurrency]} =`;
                 
                 const resultsDiv = document.getElementById('results');
                 let resultsHTML = '';
@@ -775,10 +822,18 @@
                         ${generateRateRows('raiffeisen', amount)}
                     </div>`;
                 
+                resultsHTML += `
+                    <div class="bank-card ukreximbank-card">
+                        <div class="bank-header">
+                            <div class="bank-logo ukreximbank-logo">У</div>
+                            <div>Укрексімбанк <span class="static-data-message">(статика)</span></div>
+                        </div>
+                        ${generateRateRows('ukreximbank', amount)}
+                    </div>`;
+                
                 resultsDiv.innerHTML = resultsHTML;
                 document.getElementById('last-updated').textContent = `Оновлено: ${new Date().toLocaleTimeString()}`;
                 
-                // Ініціалізуємо скролінг після оновлення контенту
                 setTimeout(initScroll, 50);
                 
             } catch (error) {
@@ -790,20 +845,16 @@
             if (currentCurrency === 'UAH') {
                 return `
                     <div class="rate-row">
-                        <span>USD купівля${bank === 'privatbank' ? ' (картки)' : ''}:</span>
+                        <span>USD купівля:</span>
                         <span class="rate-value">${(amount / exchangeRates[bank].USD.buy).toFixed(2)} $</span>
                     </div>
                     <div class="rate-row">
-                        <span>USD продаж${bank === 'privatbank' ? ' (картки)' : ''}:</span>
+                        <span>USD продаж:</span>
                         <span class="rate-value">${(amount / exchangeRates[bank].USD.sell).toFixed(2)} $</span>
                     </div>
                     <div class="rate-row">
-                        <span>EUR купівля${bank === 'privatbank' ? ' (картки)' : ''}:</span>
+                        <span>EUR купівля:</span>
                         <span class="rate-value">${(amount / exchangeRates[bank].EUR.buy).toFixed(2)} €</span>
-                    </div>
-                    <div class="rate-row">
-                        <span>EUR продаж${bank === 'privatbank' ? ' (картки)' : ''}:</span>
-                        <span class="rate-value">${(amount / exchangeRates[bank].EUR.sell).toFixed(2)} €</span>
                     </div>`;
             } else {
                 const currencyKey = currentCurrency;
@@ -811,15 +862,15 @@
                 
                 return `
                     <div class="rate-row">
-                        <span>UAH купівля${bank === 'privatbank' ? ' (картки)' : ''}:</span>
+                        <span>UAH купівля:</span>
                         <span class="rate-value">${(amount * exchangeRates[bank][currencyKey].buy).toFixed(2)} ₴</span>
                     </div>
                     <div class="rate-row">
-                        <span>UAH продаж${bank === 'privatbank' ? ' (картки)' : ''}:</span>
+                        <span>UAH продаж:</span>
                         <span class="rate-value">${(amount * exchangeRates[bank][currencyKey].sell).toFixed(2)} ₴</span>
                     </div>
                     <div class="rate-row">
-                        <span>${otherCurrencyKey}${bank === 'privatbank' ? ' (картки)' : ''}:</span>
+                        <span>${otherCurrencyKey}:</span>
                         <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
                             (exchangeRates[bank].EUR.buy / exchangeRates[bank].USD.sell) : 
                             (exchangeRates[bank].USD.buy / exchangeRates[bank].EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
@@ -838,8 +889,11 @@
             currentDisplay = '1';
             currentCurrency = 'USD';
             updateDisplay();
+            
+            // Add click handler for top currency toggle
+            document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
+            
             loadExchangeRates();
-            initScroll();
         });
     </script>
 </body>
