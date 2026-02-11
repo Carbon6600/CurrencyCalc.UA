@@ -445,7 +445,27 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBVs1nDI6iSllSxSLlYqsd97GA_33nJTbU",
+            authDomain: "current-calc.firebaseapp.com",
+            projectId: "current-calc",
+            storageBucket: "current-calc.firebasestorage.app",
+            messagingSenderId: "42380708178",
+            appId: "1:42380708178:web:b9780af8179938b949928b"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Make db available globally for other functions
+        window.firebaseDB = db;
+        window.serverTimestamp = serverTimestamp;
+
         const currencySymbols = {
             UAH: '₴',
             USD: '$',
@@ -480,6 +500,89 @@
         let lastMonobankUpdate = 0;
         const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000;
         let isScrollingEnabled = true;
+        let firebaseInitialized = true;
+
+        function getTodayDate() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        async function saveRatesToFirebase(rates, source) {
+            try {
+                const today = getTodayDate();
+                const docRef = doc(window.firebaseDB, 'exchangeRates', today);
+                
+                const data = {
+                    [source]: {
+                        rates: rates,
+                        timestamp: serverTimestamp(),
+                        date: today
+                    },
+                    lastUpdated: serverTimestamp()
+                };
+                
+                await setDoc(docRef, data, { merge: true });
+                console.log(`Rates saved to Firebase for ${source} on ${today}`);
+                return true;
+            } catch (error) {
+                console.error('Error saving to Firebase:', error);
+                return false;
+            }
+        }
+
+        async function getRatesFromFirebase(date = null) {
+            try {
+                const targetDate = date || getTodayDate();
+                const docRef = doc(window.firebaseDB, 'exchangeRates', targetDate);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    return docSnap.data();
+                }
+                return null;
+            } catch (error) {
+                console.error('Error reading from Firebase:', error);
+                return null;
+            }
+        }
+
+        async function shouldUpdateRates(source) {
+            const savedData = await getRatesFromFirebase();
+            if (!savedData || !savedData[source]) return true;
+            
+            const today = getTodayDate();
+            const savedDate = savedData[source].date;
+            
+            if (savedDate !== today) return true;
+            
+            const savedTimestamp = savedData[source].timestamp?.toDate();
+            if (savedTimestamp) {
+                const hoursDiff = (new Date() - savedTimestamp) / (1000 * 60 * 60);
+                return hoursDiff > 1;
+            }
+            
+            return true;
+        }
+
+        async function getHistoricalRates(daysBack = 7) {
+            const rates = [];
+            const today = new Date();
+            
+            for (let i = 0; i < daysBack; i++) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                const data = await getRatesFromFirebase(dateStr);
+                if (data) {
+                    rates.push({
+                        date: dateStr,
+                        data: data
+                    });
+                }
+            }
+            
+            return rates;
+        }
 
         function initScroll() {
             const container = document.getElementById('results-container');
@@ -548,13 +651,38 @@
             try {
                 document.getElementById('results').innerHTML = '<div class="loading">Оновлення курсів...</div>';
                 
-                await loadPrivatbankRates();
+                // Try to load from Firebase first
+                const firebaseRates = await getRatesFromFirebase();
+                if (firebaseRates) {
+                    console.log('Loaded rates from Firebase:', firebaseRates);
+                    
+                    if (firebaseRates.privatbank?.rates) {
+                        exchangeRates.privatbank = firebaseRates.privatbank.rates;
+                        privatbankAvailable = true;
+                    }
+                    if (firebaseRates.monobank?.rates) {
+                        exchangeRates.monobank = firebaseRates.monobank.rates;
+                        monobankAvailable = true;
+                        lastMonobankUpdate = firebaseRates.monobank.timestamp?.toDate().getTime() || Date.now();
+                    }
+                }
+                
+                // Check if we need to update from APIs
+                const needsPrivatUpdate = await shouldUpdateRates('privatbank');
+                const needsMonoUpdate = await shouldUpdateRates('monobank');
+                
+                if (needsPrivatUpdate) {
+                    await loadPrivatbankRates();
+                } else {
+                    console.log('Using cached Privatbank rates from Firebase');
+                }
                 
                 const now = Date.now();
-                if (now - lastMonobankUpdate > MONOBANK_UPDATE_INTERVAL || lastMonobankUpdate === 0) {
+                if (needsMonoUpdate || (now - lastMonobankUpdate > MONOBANK_UPDATE_INTERVAL)) {
                     await loadMonobankRates();
                     lastMonobankUpdate = now;
                 } else {
+                    console.log('Using cached Monobank rates from Firebase');
                     monobankAvailable = exchangeRates.monobank.USD.buy !== undefined;
                 }
                 
@@ -612,6 +740,9 @@
 
                         privatbankAvailable = true;
                         success = true;
+                        
+                        // Save to Firebase
+                        await saveRatesToFirebase(exchangeRates.privatbank, 'privatbank');
                         break;
                         
                     } catch (proxyError) {
@@ -683,6 +814,9 @@
                         
                         monobankAvailable = true;
                         success = true;
+                        
+                        // Save to Firebase
+                        await saveRatesToFirebase(exchangeRates.monobank, 'monobank');
                         break;
                         
                     } catch (proxyError) {
@@ -799,11 +933,13 @@
                 const monobankUpdateMsg = monobankTimeLeft > 0 ? 
                     `Оновлення через ${Math.ceil(monobankTimeLeft/60000)} хв` : 'Доступно оновлення';
                 
+                const firebaseStatus = firebaseInitialized ? '☁️' : '⚠️';
+                
                 resultsHTML += `
                     <div class="bank-card monobank-card ${!monobankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!monobankAvailable ? 'error-logo' : 'monobank-logo'}">M</div>
-                            <div>Monobank ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>Monobank ${firebaseStatus} ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${monobankAvailable ? generateRateRows('monobank', amount) : generateErrorRows()}
                         <div class="update-info">${monobankUpdateMsg}</div>
@@ -813,7 +949,7 @@
                     <div class="bank-card privatbank-card ${!privatbankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : 'privatbank-logo'}">П</div>
-                            <div>ПриватБанк <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>ПриватБанк ${firebaseStatus} <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${privatbankAvailable ? generateRateRows('privatbank', amount) : generateErrorRows()}
                     </div>`;
@@ -899,6 +1035,28 @@
             `;
         }
 
+        // Auto-update function - checks every hour if it's a new day
+        async function checkDailyUpdate() {
+            const lastCheck = localStorage.getItem('lastRateCheck');
+            const today = getTodayDate();
+            
+            if (lastCheck !== today) {
+                console.log('New day detected, updating rates...');
+                await loadExchangeRates();
+                localStorage.setItem('lastRateCheck', today);
+            }
+        }
+
+        // Make functions global for onclick handlers
+        window.cycleCurrency = cycleCurrency;
+        window.loadExchangeRates = loadExchangeRates;
+        window.clearDisplay = clearDisplay;
+        window.appendToDisplay = appendToDisplay;
+        window.backspace = backspace;
+        window.plusMinus = plusMinus;
+        window.calculate = calculate;
+
+        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             currentDisplay = '1';
             currentCurrency = 'USD';
@@ -906,7 +1064,18 @@
             
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
+            // Load rates
             loadExchangeRates();
+            
+            // Set up daily auto-update check every hour
+            setInterval(checkDailyUpdate, 60 * 60 * 1000);
+            
+            // Also check on visibility change (when user returns to app)
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    checkDailyUpdate();
+                }
+            });
         });
     </script>
 </body>
