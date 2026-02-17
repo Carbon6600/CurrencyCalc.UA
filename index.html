@@ -478,7 +478,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, set, get, child, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, set, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBVs1nDI6iSllSxSLlYqsd97GA_33nJTbU",
@@ -492,9 +493,41 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth(app);
 
         window.firebaseDB = db;
         window.dbRef = ref;
+        window.firebaseAuth = auth;
+
+        let isAuthenticated = false;
+        let currentUser = null;
+
+        // Анонімна авторизація
+        async function initAuth() {
+            try {
+                const userCredential = await signInAnonymously(auth);
+                currentUser = userCredential.user;
+                isAuthenticated = true;
+                console.log('Анонімна авторизація успішна:', currentUser.uid);
+                return true;
+            } catch (error) {
+                console.error('Помилка авторизації:', error);
+                isAuthenticated = false;
+                return false;
+            }
+        }
+
+        // Слідкуємо за станом авторизації
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                isAuthenticated = true;
+                console.log('Користувач авторизований:', user.uid);
+            } else {
+                isAuthenticated = false;
+                currentUser = null;
+            }
+        });
 
         const currencySymbols = {
             UAH: '₴',
@@ -582,8 +615,13 @@
             return false;
         }
 
-        // Збереження курсів у Realtime Database
+        // Збереження курсів у Realtime Database (тільки якщо авторизовані)
         async function saveRatesToRTDB(rates, source) {
+            if (!isAuthenticated) {
+                console.warn('Немає авторизації, пропускаємо запис');
+                return false;
+            }
+            
             try {
                 const today = getTodayDate();
                 const ratesRef = ref(db, `exchangeRates/${today}/${source}`);
@@ -591,7 +629,8 @@
                 const data = {
                     rates: rates,
                     timestamp: Date.now(),
-                    date: today
+                    date: today,
+                    updatedBy: currentUser?.uid || 'anonymous'
                 };
                 
                 await set(ratesRef, data);
@@ -609,7 +648,6 @@
                 const today = getTodayDate();
                 const ratesRef = ref(db, `exchangeRates/${today}`);
                 
-                // Спочатку пробуємо отримати з кешу (offline persistence працює автоматично)
                 const snapshot = await get(ratesRef);
                 
                 if (snapshot.exists()) {
@@ -670,14 +708,12 @@
                 hasNewData = true;
             }
             
-            // Оновлюємо UI тільки якщо є значні зміни або це перше завантаження
             if (hasNewData) {
                 const newHash = getRatesHash(data);
                 if (newHash !== lastRatesHash || ratesChanged || isRealtime) {
                     lastRatesHash = newHash;
                     calculateRates();
                     
-                    // Візуальне сповіщення про оновлення
                     if (ratesChanged && isRealtime) {
                         showUpdateNotification('Курси валют оновлено!');
                     }
@@ -712,25 +748,26 @@
             try {
                 let updated = false;
                 
-                // Перевіряємо чи потрібно оновлювати (не частіше ніж раз на 5 хвилин для Monobank)
                 const now = Date.now();
                 const lastUpdate = exchangeRates.monobank?.timestamp || 0;
                 const needsUpdate = (now - lastUpdate > 5 * 60 * 1000);
                 
                 if (needsUpdate) {
-                    // Оновлюємо Monobank
                     const monoSuccess = await loadMonobankRates();
                     if (monoSuccess) updated = true;
                     
-                    // Оновлюємо Privatbank
                     const privatSuccess = await loadPrivatbankRates();
                     if (privatSuccess) updated = true;
                 }
                 
                 if (updated) {
-                    // Зберігаємо нові курси у RTDB (це викличе onValue у всіх клієнтів)
-                    await saveRatesToRTDB(exchangeRates.monobank, 'monobank');
-                    await saveRatesToRTDB(exchangeRates.privatbank, 'privatbank');
+                    // Зберігаємо тільки якщо авторизовані
+                    if (isAuthenticated) {
+                        await saveRatesToRTDB(exchangeRates.monobank, 'monobank');
+                        await saveRatesToRTDB(exchangeRates.privatbank, 'privatbank');
+                    } else {
+                        console.log('Немає авторизації, курси не збережено в базу');
+                    }
                 }
                 
             } catch (error) {
@@ -867,30 +904,33 @@
         // Головна функція завантаження
         async function loadExchangeRates(forceUpdate = false) {
             try {
-                // Крок 1: Миттєве завантаження з RTDB (з кешу або сервера)
+                // Спочатку авторизуємося
+                if (!isAuthenticated) {
+                    await initAuth();
+                }
+                
+                // Крок 1: Миттєве завантаження з RTDB
                 const cachedData = await loadFromRTDBCache();
                 
                 if (cachedData) {
                     handleRatesUpdate(cachedData, false);
                 } else {
-                    // Якщо немає в RTDB, показуємо статичні дані
                     initStaticRates();
                 }
                 
-                // Крок 2: Налаштування real-time listener для майбутніх оновлень
+                // Крок 2: Налаштування real-time listener
                 setupRealtimeListener();
                 
-                // Крок 3: Фонова перевірка оновлень з API (якщо потрібно)
+                // Крок 3: Фонове оновлення
                 if (forceUpdate || !cachedData) {
                     await backgroundUpdateFromAPIs();
                 } else {
-                    // Перевіряємо чи дані актуальні (не старші 1 години)
                     const lastUpdated = cachedData.privatbank?.timestamp || cachedData.monobank?.timestamp || 0;
                     const hoursDiff = (Date.now() - lastUpdated) / (1000 * 60 * 60);
                     
                     if (hoursDiff > 1) {
                         console.log('Дані застарілі, запускаємо фонове оновлення...');
-                        backgroundUpdateFromAPIs(); // Не чекаємо, запускаємо у фоні
+                        backgroundUpdateFromAPIs();
                     }
                 }
                 
@@ -1007,6 +1047,7 @@
                 
                 const now = new Date();
                 const timeString = now.toLocaleTimeString();
+                const authStatus = isAuthenticated ? '🔒' : '🔓';
                 
                 // Monobank card
                 const monoUpdating = isBackgroundUpdating && monobankAvailable;
@@ -1014,7 +1055,7 @@
                     <div class="bank-card monobank-card ${monoUpdating ? 'updating' : ''} ${!monobankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!monobankAvailable ? 'error-logo' : 'monobank-logo'}">M</div>
-                            <div>Monobank ${monoUpdating ? '⟳' : '☁️'} ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>Monobank ${authStatus} ${monoUpdating ? '⟳' : '☁️'} ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${monobankAvailable ? generateRateRows('monobank', amount) : generateErrorRows()}
                         <div class="update-info">Оновлено: ${timeString}</div>
@@ -1026,7 +1067,7 @@
                     <div class="bank-card privatbank-card ${privatUpdating ? 'updating' : ''} ${!privatbankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : 'privatbank-logo'}">П</div>
-                            <div>ПриватБанк ${privatUpdating ? '⟳' : '☁️'} <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>ПриватБанк ${authStatus} ${privatUpdating ? '⟳' : '☁️'} <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${privatbankAvailable ? generateRateRows('privatbank', amount) : generateErrorRows()}
                     </div>`;
@@ -1053,8 +1094,7 @@
                 
                 resultsDiv.innerHTML = resultsHTML;
                 
-                // Оновлення часу останнього оновлення
-                document.getElementById('last-updated').textContent = `Оновлено: ${timeString}`;
+                document.getElementById('last-updated').textContent = `Оновлено: ${timeString} ${authStatus}`;
                 
             } catch (error) {
                 console.error('Помилка розрахунку:', error);
@@ -1122,13 +1162,12 @@
             
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
-            // Завантаження курсів: спочатку кеш, потім фонове оновлення
+            // Завантаження курсів з авторизацією
             loadExchangeRates();
             
             // Перевірка оновлень при поверненні на сторінку
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') {
-                    // Перевіряємо чи є нові дані на сервері
                     backgroundUpdateFromAPIs();
                 }
             });
