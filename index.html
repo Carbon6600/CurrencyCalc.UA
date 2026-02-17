@@ -478,11 +478,12 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, getDocs, collection, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getDatabase, ref, onValue, set, get, child, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBVs1nDI6iSllSxSLlYqsd97GA_33nJTbU",
             authDomain: "current-calc.firebaseapp.com",
+            databaseURL: "https://current-calc-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "current-calc",
             storageBucket: "current-calc.firebasestorage.app",
             messagingSenderId: "42380708178",
@@ -490,10 +491,10 @@
         };
 
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        const db = getDatabase(app);
 
         window.firebaseDB = db;
-        window.serverTimestamp = serverTimestamp;
+        window.dbRef = ref;
 
         const currencySymbols = {
             UAH: '₴',
@@ -530,7 +531,7 @@
         let monobankAvailable = false;
         let isFirstInput = true;
         let isBackgroundUpdating = false;
-        let firebaseListenerUnsubscribe = null;
+        let rtdbListenerUnsubscribe = null;
         let lastRatesHash = '';
 
         function getTodayDate() {
@@ -540,8 +541,8 @@
         // Генерація хешу для порівняння курсів
         function getRatesHash(rates) {
             if (!rates) return '';
-            const privat = rates.privatbank?.rates;
-            const mono = rates.monobank?.rates;
+            const privat = rates.privatbank;
+            const mono = rates.monobank;
             if (!privat && !mono) return '';
             
             let hash = '';
@@ -581,64 +582,61 @@
             return false;
         }
 
-        // Збереження курсів у Firebase
-        async function saveRatesToFirebase(rates, source) {
+        // Збереження курсів у Realtime Database
+        async function saveRatesToRTDB(rates, source) {
             try {
                 const today = getTodayDate();
-                const docRef = doc(window.firebaseDB, 'exchangeRates', today);
+                const ratesRef = ref(db, `exchangeRates/${today}/${source}`);
                 
                 const data = {
-                    [source]: {
-                        rates: rates,
-                        timestamp: serverTimestamp(),
-                        date: today
-                    },
-                    lastUpdated: serverTimestamp()
+                    rates: rates,
+                    timestamp: Date.now(),
+                    date: today
                 };
                 
-                await setDoc(docRef, data, { merge: true });
-                console.log(`Збережено ${source} у Firebase`);
+                await set(ratesRef, data);
+                console.log(`Збережено ${source} у RTDB`);
                 return true;
             } catch (error) {
-                console.error('Помилка збереження в Firebase:', error);
+                console.error('Помилка збереження в RTDB:', error);
                 return false;
             }
         }
 
-        // Миттєве завантаження з Firebase (cache first)
-        async function loadFromFirebaseCache() {
+        // Миттєве завантаження з Realtime Database (cache first)
+        async function loadFromRTDBCache() {
             try {
                 const today = getTodayDate();
-                const docRef = doc(window.firebaseDB, 'exchangeRates', today);
+                const ratesRef = ref(db, `exchangeRates/${today}`);
                 
                 // Спочатку пробуємо отримати з кешу (offline persistence працює автоматично)
-                const docSnap = await getDoc(docRef);
+                const snapshot = await get(ratesRef);
                 
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    console.log('Завантажено з Firebase (cache/server):', data);
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    console.log('Завантажено з RTDB (cache/server):', data);
                     return data;
                 }
                 return null;
             } catch (error) {
-                console.error('Помилка читання з Firebase:', error);
+                console.error('Помилка читання з RTDB:', error);
                 return null;
             }
         }
 
         // Налаштування real-time listener для оновлень
         function setupRealtimeListener() {
-            if (firebaseListenerUnsubscribe) {
-                firebaseListenerUnsubscribe();
+            if (rtdbListenerUnsubscribe) {
+                rtdbListenerUnsubscribe();
             }
             
             const today = getTodayDate();
-            const docRef = doc(window.firebaseDB, 'exchangeRates', today);
+            const ratesRef = ref(db, `exchangeRates/${today}`);
             
-            firebaseListenerUnsubscribe = onSnapshot(docRef, (doc) => {
-                if (doc.exists()) {
-                    const data = doc.data();
-                    console.log('Real-time оновлення з Firebase:', data);
+            rtdbListenerUnsubscribe = onValue(ratesRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    console.log('Real-time оновлення з RTDB:', data);
                     handleRatesUpdate(data, true);
                 }
             }, (error) => {
@@ -730,9 +728,9 @@
                 }
                 
                 if (updated) {
-                    // Зберігаємо нові курси у Firebase (це викличе onSnapshot у всіх клієнтів)
-                    await saveRatesToFirebase(exchangeRates.monobank, 'monobank');
-                    await saveRatesToFirebase(exchangeRates.privatbank, 'privatbank');
+                    // Зберігаємо нові курси у RTDB (це викличе onValue у всіх клієнтів)
+                    await saveRatesToRTDB(exchangeRates.monobank, 'monobank');
+                    await saveRatesToRTDB(exchangeRates.privatbank, 'privatbank');
                 }
                 
             } catch (error) {
@@ -869,13 +867,13 @@
         // Головна функція завантаження
         async function loadExchangeRates(forceUpdate = false) {
             try {
-                // Крок 1: Миттєве завантаження з Firebase (з кешу або сервера)
-                const cachedData = await loadFromFirebaseCache();
+                // Крок 1: Миттєве завантаження з RTDB (з кешу або сервера)
+                const cachedData = await loadFromRTDBCache();
                 
                 if (cachedData) {
                     handleRatesUpdate(cachedData, false);
                 } else {
-                    // Якщо немає в Firebase, показуємо статичні дані
+                    // Якщо немає в RTDB, показуємо статичні дані
                     initStaticRates();
                 }
                 
@@ -887,8 +885,8 @@
                     await backgroundUpdateFromAPIs();
                 } else {
                     // Перевіряємо чи дані актуальні (не старші 1 години)
-                    const lastUpdated = cachedData.lastUpdated?.toDate?.() || new Date(0);
-                    const hoursDiff = (new Date() - lastUpdated) / (1000 * 60 * 60);
+                    const lastUpdated = cachedData.privatbank?.timestamp || cachedData.monobank?.timestamp || 0;
+                    const hoursDiff = (Date.now() - lastUpdated) / (1000 * 60 * 60);
                     
                     if (hoursDiff > 1) {
                         console.log('Дані застарілі, запускаємо фонове оновлення...');
