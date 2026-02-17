@@ -166,13 +166,18 @@
             box-sizing: border-box;
             position: relative;
             overflow: hidden;
-            transition: transform 0.3s;
+            transition: transform 0.3s, opacity 0.3s;
             flex-shrink: 0;
             touch-action: manipulation;
         }
         
         .bank-card:active {
             transform: scale(0.98);
+        }
+        
+        .bank-card.updating {
+            opacity: 0.7;
+            animation: pulse 1s infinite;
         }
         
         .monobank-card {
@@ -271,6 +276,27 @@
             font-weight: bold;
             color: white;
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            transition: color 0.3s;
+        }
+        
+        .rate-value.changed-up {
+            color: #27ae60;
+            animation: highlightUp 1s ease;
+        }
+        
+        .rate-value.changed-down {
+            color: #e74c3c;
+            animation: highlightDown 1s ease;
+        }
+        
+        @keyframes highlightUp {
+            0% { color: #27ae60; transform: scale(1.1); }
+            100% { color: white; transform: scale(1); }
+        }
+        
+        @keyframes highlightDown {
+            0% { color: #e74c3c; transform: scale(1.1); }
+            100% { color: white; transform: scale(1); }
         }
         
         .controls-row {
@@ -452,7 +478,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, getDocs, collection, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBVs1nDI6iSllSxSLlYqsd97GA_33nJTbU",
@@ -489,6 +515,9 @@
 
         const currencyOrder = ['UAH', 'USD', 'EUR'];
         
+        // Поріг значущої зміни курсу (0.5%)
+        const SIGNIFICANT_CHANGE_THRESHOLD = 0.005;
+        
         let currentDisplay = '1';
         let currentCurrency = 'USD';
         let exchangeRates = {
@@ -500,16 +529,59 @@
         let privatbankAvailable = false;
         let monobankAvailable = false;
         let isFirstInput = true;
-        let lastMonobankUpdate = 0;
-        const MONOBANK_UPDATE_INTERVAL = 5 * 60 * 1000;
-        let isScrollingEnabled = true;
-        let firebaseInitialized = true;
         let isBackgroundUpdating = false;
+        let firebaseListenerUnsubscribe = null;
+        let lastRatesHash = '';
 
         function getTodayDate() {
             return new Date().toISOString().split('T')[0];
         }
 
+        // Генерація хешу для порівняння курсів
+        function getRatesHash(rates) {
+            if (!rates) return '';
+            const privat = rates.privatbank?.rates;
+            const mono = rates.monobank?.rates;
+            if (!privat && !mono) return '';
+            
+            let hash = '';
+            if (privat) {
+                hash += `P${privat.USD?.buy||0},${privat.USD?.sell||0},${privat.EUR?.buy||0},${privat.EUR?.sell||0}`;
+            }
+            if (mono) {
+                hash += `M${mono.USD?.buy||0},${mono.USD?.sell||0},${mono.EUR?.buy||0},${mono.EUR?.sell||0}`;
+            }
+            return hash;
+        }
+
+        // Перевірка значущої зміни курсу
+        function hasSignificantChange(oldRates, newRates) {
+            if (!oldRates || !newRates) return true;
+            
+            const banks = ['privatbank', 'monobank'];
+            const currencies = ['USD', 'EUR'];
+            const types = ['buy', 'sell'];
+            
+            for (const bank of banks) {
+                for (const curr of currencies) {
+                    for (const type of types) {
+                        const oldVal = oldRates[bank]?.[curr]?.[type];
+                        const newVal = newRates[bank]?.[curr]?.[type];
+                        
+                        if (!oldVal || !newVal) continue;
+                        
+                        const change = Math.abs(newVal - oldVal) / oldVal;
+                        if (change > SIGNIFICANT_CHANGE_THRESHOLD) {
+                            console.log(`Значна зміна ${bank} ${curr} ${type}: ${oldVal} -> ${newVal} (${(change*100).toFixed(2)}%)`);
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Збереження курсів у Firebase
         async function saveRatesToFirebase(rates, source) {
             try {
                 const today = getTodayDate();
@@ -525,287 +597,152 @@
                 };
                 
                 await setDoc(docRef, data, { merge: true });
-                console.log(`Rates saved to Firebase for ${source} on ${today}`);
+                console.log(`Збережено ${source} у Firebase`);
                 return true;
             } catch (error) {
-                console.error('Error saving to Firebase:', error);
+                console.error('Помилка збереження в Firebase:', error);
                 return false;
             }
         }
 
-        async function getRatesFromFirebase(date = null) {
+        // Миттєве завантаження з Firebase (cache first)
+        async function loadFromFirebaseCache() {
             try {
-                const targetDate = date || getTodayDate();
-                const docRef = doc(window.firebaseDB, 'exchangeRates', targetDate);
+                const today = getTodayDate();
+                const docRef = doc(window.firebaseDB, 'exchangeRates', today);
+                
+                // Спочатку пробуємо отримати з кешу (offline persistence працює автоматично)
                 const docSnap = await getDoc(docRef);
                 
                 if (docSnap.exists()) {
-                    return docSnap.data();
+                    const data = docSnap.data();
+                    console.log('Завантажено з Firebase (cache/server):', data);
+                    return data;
                 }
                 return null;
             } catch (error) {
-                console.error('Error reading from Firebase:', error);
+                console.error('Помилка читання з Firebase:', error);
                 return null;
             }
         }
 
-        async function shouldUpdateRates(source) {
-            const savedData = await getRatesFromFirebase();
-            if (!savedData || !savedData[source]) return true;
+        // Налаштування real-time listener для оновлень
+        function setupRealtimeListener() {
+            if (firebaseListenerUnsubscribe) {
+                firebaseListenerUnsubscribe();
+            }
             
             const today = getTodayDate();
-            const savedDate = savedData[source].date;
+            const docRef = doc(window.firebaseDB, 'exchangeRates', today);
             
-            if (savedDate !== today) return true;
-            
-            const savedTimestamp = savedData[source].timestamp?.toDate();
-            if (savedTimestamp) {
-                const hoursDiff = (new Date() - savedTimestamp) / (1000 * 60 * 60);
-                return hoursDiff > 1;
-            }
-            
-            return true;
+            firebaseListenerUnsubscribe = onSnapshot(docRef, (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data();
+                    console.log('Real-time оновлення з Firebase:', data);
+                    handleRatesUpdate(data, true);
+                }
+            }, (error) => {
+                console.error('Помилка real-time listener:', error);
+            });
         }
 
-        function initScroll() {
-            const container = document.getElementById('results-container');
-            let startY, scrollTop, isDragging;
+        // Обробка оновлення курсів з перевіркою значущих змін
+        function handleRatesUpdate(data, isRealtime = false) {
+            let hasNewData = false;
+            let ratesChanged = false;
+            const oldRates = JSON.parse(JSON.stringify(exchangeRates));
             
-            container.addEventListener('touchstart', (e) => {
-                if (!isScrollingEnabled) return;
-                
-                startY = e.touches[0].clientY;
-                scrollTop = container.scrollTop;
-                isDragging = true;
-            }, { passive: true });
+            if (data.privatbank?.rates) {
+                const newPrivat = data.privatbank.rates;
+                if (hasSignificantChange(oldRates.privatbank, newPrivat)) {
+                    ratesChanged = true;
+                }
+                exchangeRates.privatbank = newPrivat;
+                privatbankAvailable = true;
+                hasNewData = true;
+            }
             
-            container.addEventListener('touchmove', (e) => {
-                if (!isDragging || !isScrollingEnabled) return;
-                const y = e.touches[0].clientY;
-                const walk = (y - startY) * 1.5;
-                container.scrollTop = scrollTop - walk;
-            }, { passive: true });
+            if (data.monobank?.rates) {
+                const newMono = data.monobank.rates;
+                if (hasSignificantChange(oldRates.monobank, newMono)) {
+                    ratesChanged = true;
+                }
+                exchangeRates.monobank = newMono;
+                monobankAvailable = true;
+                hasNewData = true;
+            }
             
-            container.addEventListener('touchend', () => {
-                if (!isDragging || !isScrollingEnabled) return;
-                isDragging = false;
-                snapToNearestCard();
-            }, { passive: true });
-            
-            function snapToNearestCard() {
-                if (!isScrollingEnabled) return;
-                
-                const cards = document.querySelectorAll('.bank-card');
-                if (!cards.length) return;
-                
-                const containerRect = container.getBoundingClientRect();
-                const containerCenter = containerRect.top + containerRect.height / 2;
-                
-                let closestCard = null;
-                let minDistance = Infinity;
-                
-                cards.forEach(card => {
-                    const cardRect = card.getBoundingClientRect();
-                    const cardCenter = cardRect.top + cardRect.height / 2;
-                    const distance = Math.abs(cardCenter - containerCenter);
+            // Оновлюємо UI тільки якщо є значні зміни або це перше завантаження
+            if (hasNewData) {
+                const newHash = getRatesHash(data);
+                if (newHash !== lastRatesHash || ratesChanged || isRealtime) {
+                    lastRatesHash = newHash;
+                    calculateRates();
                     
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        closestCard = card;
+                    // Візуальне сповіщення про оновлення
+                    if (ratesChanged && isRealtime) {
+                        showUpdateNotification('Курси валют оновлено!');
                     }
-                });
-                
-                if (closestCard) {
-                    closestCard.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'nearest'
-                    });
                 }
             }
         }
 
-        function cycleCurrency() {
-            const currentIndex = currencyOrder.indexOf(currentCurrency);
-            const nextIndex = (currentIndex + 1) % currencyOrder.length;
-            setCurrency(currencyOrder[nextIndex]);
+        function showUpdateNotification(message) {
+            const lastUpdatedEl = document.getElementById('last-updated');
+            if (lastUpdatedEl) {
+                const originalText = lastUpdatedEl.textContent;
+                lastUpdatedEl.textContent = `✓ ${message}`;
+                lastUpdatedEl.style.color = '#27ae60';
+                setTimeout(() => {
+                    lastUpdatedEl.textContent = originalText;
+                    lastUpdatedEl.style.color = '#aaa';
+                }, 3000);
+            }
         }
 
-        // Main load function - instant from cache, background update
-        async function loadExchangeRates(forceUpdate = false) {
+        // Фонове оновлення з API банків
+        async function backgroundUpdateFromAPIs() {
+            if (isBackgroundUpdating) return;
+            isBackgroundUpdating = true;
+            
             const refreshBtn = document.getElementById('refresh-btn');
-            
-            try {
-                // Step 1: INSTANTLY load from Firebase (no waiting)
-                const firebaseRates = await getRatesFromFirebase();
-                
-                if (firebaseRates) {
-                    console.log('Instant load from Firebase:', firebaseRates);
-                    
-                    let hasCachedData = false;
-                    
-                    if (firebaseRates.privatbank?.rates) {
-                        exchangeRates.privatbank = firebaseRates.privatbank.rates;
-                        privatbankAvailable = true;
-                        hasCachedData = true;
-                    }
-                    if (firebaseRates.monobank?.rates) {
-                        exchangeRates.monobank = firebaseRates.monobank.rates;
-                        monobankAvailable = true;
-                        lastMonobankUpdate = firebaseRates.monobank.timestamp?.toDate().getTime() || Date.now();
-                        hasCachedData = true;
-                    }
-                    
-                    // Show cached data immediately
-                    if (hasCachedData) {
-                        calculateRates();
-                    }
-                }
-                
-                // Step 2: Check if we need background update
-                const needsPrivatUpdate = forceUpdate || await shouldUpdateRates('privatbank');
-                const needsMonoUpdate = forceUpdate || await shouldUpdateRates('monobank');
-                const now = Date.now();
-                const needsMonoByTime = (now - lastMonobankUpdate > MONOBANK_UPDATE_INTERVAL);
-                
-                // If no cached data at all, show loading and fetch immediately
-                if (!privatbankAvailable && !monobankAvailable) {
-                    document.getElementById('results').innerHTML = '<div class="loading">Завантаження курсів...</div>';
-                    await performBackgroundUpdate(true);
-                    return;
-                }
-                
-                // Background update if needed
-                if (needsPrivatUpdate || needsMonoUpdate || needsMonoByTime) {
-                    console.log('Background update needed:', { needsPrivatUpdate, needsMonoUpdate, needsMonoByTime });
-                    
-                    // Visual indicator of background update
-                    if (refreshBtn) {
-                        refreshBtn.classList.add('updating');
-                        refreshBtn.textContent = '⟳ Оновлення...';
-                    }
-                    
-                    // Perform update in background
-                    isBackgroundUpdating = true;
-                    performBackgroundUpdate(false, { needsPrivatUpdate, needsMonoUpdate, needsMonoByTime, now })
-                        .finally(() => {
-                            isBackgroundUpdating = false;
-                            if (refreshBtn) {
-                                refreshBtn.classList.remove('updating');
-                                refreshBtn.textContent = 'Оновити курси';
-                            }
-                        });
-                }
-                
-            } catch (error) {
-                console.error('Помилка завантаження курсів:', error);
-                
-                // If no data at all, show error
-                if (!privatbankAvailable && !monobankAvailable) {
-                    document.getElementById('results').innerHTML = `
-                        <div class="error-message">
-                            Не вдалося завантажити курси. Перевірте з'єднання.
-                        </div>
-                    `;
-                    initStaticRates();
-                }
+            if (refreshBtn) {
+                refreshBtn.classList.add('updating');
+                refreshBtn.textContent = '⟳ Оновлення...';
             }
-        }
-
-        // Background update function
-        async function performBackgroundUpdate(isInitial = false, updateFlags = {}) {
+            
             try {
                 let updated = false;
                 
-                // Update Privatbank if needed
-                if (isInitial || updateFlags.needsPrivatUpdate) {
+                // Перевіряємо чи потрібно оновлювати (не частіше ніж раз на 5 хвилин для Monobank)
+                const now = Date.now();
+                const lastUpdate = exchangeRates.monobank?.timestamp || 0;
+                const needsUpdate = (now - lastUpdate > 5 * 60 * 1000);
+                
+                if (needsUpdate) {
+                    // Оновлюємо Monobank
+                    const monoSuccess = await loadMonobankRates();
+                    if (monoSuccess) updated = true;
+                    
+                    // Оновлюємо Privatbank
                     const privatSuccess = await loadPrivatbankRates();
                     if (privatSuccess) updated = true;
                 }
                 
-                // Update Monobank if needed
-                const now = Date.now();
-                if (isInitial || updateFlags.needsMonoUpdate || updateFlags.needsMonoByTime) {
-                    const monoSuccess = await loadMonobankRates();
-                    if (monoSuccess) {
-                        lastMonobankUpdate = now;
-                        updated = true;
-                    }
-                }
-                
-                // Refresh display if updated
                 if (updated) {
-                    console.log('Background update completed, refreshing display');
-                    calculateRates();
-                    
-                    // Show brief "updated" indicator
-                    const lastUpdatedEl = document.getElementById('last-updated');
-                    if (lastUpdatedEl) {
-                        const originalText = lastUpdatedEl.textContent;
-                        lastUpdatedEl.textContent = '✓ Оновлено щойно';
-                        lastUpdatedEl.style.color = '#27ae60';
-                        setTimeout(() => {
-                            lastUpdatedEl.textContent = originalText;
-                            lastUpdatedEl.style.color = '#aaa';
-                        }, 2000);
-                    }
+                    // Зберігаємо нові курси у Firebase (це викличе onSnapshot у всіх клієнтів)
+                    await saveRatesToFirebase(exchangeRates.monobank, 'monobank');
+                    await saveRatesToFirebase(exchangeRates.privatbank, 'privatbank');
                 }
                 
             } catch (error) {
-                console.error('Background update error:', error);
-            }
-        }
-
-        async function loadPrivatbankRates() {
-            try {
-                const proxyUrls = [
-                    'https://api.allorigins.win/raw?url=',
-                    'https://corsproxy.io/?',
-                    'https://cors-anywhere.herokuapp.com/',
-                    'https://yacdn.org/proxy/'
-                ];
-                
-                const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?exchange&json&coursid=11';
-                
-                for (const proxyUrl of proxyUrls) {
-                    try {
-                        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                        });
-                        
-                        if (!response.ok) continue;
-                        
-                        const data = await response.json();
-                        
-                        data.forEach(rate => {
-                            if (rate.ccy === 'USD') {
-                                exchangeRates.privatbank.USD = {
-                                    buy: parseFloat(rate.buy),
-                                    sell: parseFloat(rate.sale)
-                                };
-                            } else if (rate.ccy === 'EUR') {
-                                exchangeRates.privatbank.EUR = {
-                                    buy: parseFloat(rate.buy),
-                                    sell: parseFloat(rate.sale)
-                                };
-                            }
-                        });
-
-                        privatbankAvailable = true;
-                        
-                        // Save to Firebase
-                        await saveRatesToFirebase(exchangeRates.privatbank, 'privatbank');
-                        return true;
-                        
-                    } catch (proxyError) {
-                        console.error(`Помилка з проксі ${proxyUrl}:`, proxyError);
-                    }
+                console.error('Помилка фонового оновлення:', error);
+            } finally {
+                isBackgroundUpdating = false;
+                if (refreshBtn) {
+                    refreshBtn.classList.remove('updating');
+                    refreshBtn.textContent = 'Оновити курси';
                 }
-                
-                return false;
-                
-            } catch (error) {
-                console.error('Помилка завантаження курсів ПриватБанк:', error);
-                return false;
             }
         }
 
@@ -842,7 +779,8 @@
                         if (usdRate) {
                             exchangeRates.monobank.USD = {
                                 buy: usdRate.rateBuy,
-                                sell: usdRate.rateSell
+                                sell: usdRate.rateSell,
+                                timestamp: Date.now()
                             };
                         }
                         
@@ -854,37 +792,126 @@
                         if (eurRate) {
                             exchangeRates.monobank.EUR = {
                                 buy: eurRate.rateBuy,
-                                sell: eurRate.rateSell
+                                sell: eurRate.rateSell,
+                                timestamp: Date.now()
                             };
                         }
                         
                         monobankAvailable = true;
-                        
-                        // Save to Firebase
-                        await saveRatesToFirebase(exchangeRates.monobank, 'monobank');
                         return true;
                         
                     } catch (proxyError) {
-                        console.error(`Помилка з проксі ${proxyUrl}:`, proxyError);
+                        console.error(`Помилка проксі ${proxyUrl}:`, proxyError);
                     }
                 }
                 
                 return false;
                 
             } catch (error) {
-                console.error('Помилка завантаження курсів Monobank:', error);
+                console.error('Помилка завантаження Monobank:', error);
                 return false;
+            }
+        }
+
+        async function loadPrivatbankRates() {
+            try {
+                const proxyUrls = [
+                    'https://api.allorigins.win/raw?url=',
+                    'https://corsproxy.io/?',
+                    'https://cors-anywhere.herokuapp.com/',
+                    'https://yacdn.org/proxy/'
+                ];
+                
+                const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?exchange&json&coursid=11';
+                
+                for (const proxyUrl of proxyUrls) {
+                    try {
+                        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        
+                        if (!response.ok) continue;
+                        
+                        const data = await response.json();
+                        
+                        data.forEach(rate => {
+                            if (rate.ccy === 'USD') {
+                                exchangeRates.privatbank.USD = {
+                                    buy: parseFloat(rate.buy),
+                                    sell: parseFloat(rate.sale),
+                                    timestamp: Date.now()
+                                };
+                            } else if (rate.ccy === 'EUR') {
+                                exchangeRates.privatbank.EUR = {
+                                    buy: parseFloat(rate.buy),
+                                    sell: parseFloat(rate.sale),
+                                    timestamp: Date.now()
+                                };
+                            }
+                        });
+
+                        privatbankAvailable = true;
+                        return true;
+                        
+                    } catch (proxyError) {
+                        console.error(`Помилка проксі ${proxyUrl}:`, proxyError);
+                    }
+                }
+                
+                return false;
+                
+            } catch (error) {
+                console.error('Помилка завантаження Privatbank:', error);
+                return false;
+            }
+        }
+
+        // Головна функція завантаження
+        async function loadExchangeRates(forceUpdate = false) {
+            try {
+                // Крок 1: Миттєве завантаження з Firebase (з кешу або сервера)
+                const cachedData = await loadFromFirebaseCache();
+                
+                if (cachedData) {
+                    handleRatesUpdate(cachedData, false);
+                } else {
+                    // Якщо немає в Firebase, показуємо статичні дані
+                    initStaticRates();
+                }
+                
+                // Крок 2: Налаштування real-time listener для майбутніх оновлень
+                setupRealtimeListener();
+                
+                // Крок 3: Фонова перевірка оновлень з API (якщо потрібно)
+                if (forceUpdate || !cachedData) {
+                    await backgroundUpdateFromAPIs();
+                } else {
+                    // Перевіряємо чи дані актуальні (не старші 1 години)
+                    const lastUpdated = cachedData.lastUpdated?.toDate?.() || new Date(0);
+                    const hoursDiff = (new Date() - lastUpdated) / (1000 * 60 * 60);
+                    
+                    if (hoursDiff > 1) {
+                        console.log('Дані застарілі, запускаємо фонове оновлення...');
+                        backgroundUpdateFromAPIs(); // Не чекаємо, запускаємо у фоні
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Помилка завантаження курсів:', error);
+                if (!privatbankAvailable && !monobankAvailable) {
+                    initStaticRates();
+                }
             }
         }
 
         function initStaticRates() {
             exchangeRates.privatbank = {
-                USD: { buy: 37.40, sell: 38.10 },
-                EUR: { buy: 40.20, sell: 40.95 }
+                USD: { buy: 37.40, sell: 38.10, timestamp: Date.now() },
+                EUR: { buy: 40.20, sell: 40.95, timestamp: Date.now() }
             };
             exchangeRates.monobank = {
-                USD: { buy: 37.25, sell: 38.35 },
-                EUR: { buy: 40.15, sell: 41.25 }
+                USD: { buy: 37.25, sell: 38.35, timestamp: Date.now() },
+                EUR: { buy: 40.15, sell: 41.25, timestamp: Date.now() }
             };
             privatbankAvailable = true;
             monobankAvailable = true;
@@ -944,6 +971,12 @@
             calculateRates();
         }
         
+        function cycleCurrency() {
+            const currentIndex = currencyOrder.indexOf(currentCurrency);
+            const nextIndex = (currentIndex + 1) % currencyOrder.length;
+            setCurrency(currencyOrder[nextIndex]);
+        }
+
         function setCurrency(currency) {
             if (currentCurrency !== currency) {
                 currentCurrency = currency;
@@ -974,32 +1007,33 @@
                 const resultsDiv = document.getElementById('results');
                 let resultsHTML = '';
                 
-                const monobankTimeLeft = Math.max(0, MONOBANK_UPDATE_INTERVAL - (Date.now() - lastMonobankUpdate));
-                const monobankUpdateMsg = monobankTimeLeft > 0 ? 
-                    `Оновлення через ${Math.ceil(monobankTimeLeft/60000)} хв` : 'Доступно оновлення';
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
                 
-                const firebaseStatus = firebaseInitialized ? '☁️' : '⚠️';
-                const cacheIndicator = isBackgroundUpdating ? '⟳' : '';
-                
+                // Monobank card
+                const monoUpdating = isBackgroundUpdating && monobankAvailable;
                 resultsHTML += `
-                    <div class="bank-card monobank-card ${!monobankAvailable ? 'error' : ''}">
+                    <div class="bank-card monobank-card ${monoUpdating ? 'updating' : ''} ${!monobankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!monobankAvailable ? 'error-logo' : 'monobank-logo'}">M</div>
-                            <div>Monobank ${firebaseStatus} ${cacheIndicator} ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>Monobank ${monoUpdating ? '⟳' : '☁️'} ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${monobankAvailable ? generateRateRows('monobank', amount) : generateErrorRows()}
-                        <div class="update-info">${monobankUpdateMsg}</div>
+                        <div class="update-info">Оновлено: ${timeString}</div>
                     </div>`;
                 
+                // Privatbank card
+                const privatUpdating = isBackgroundUpdating && privatbankAvailable;
                 resultsHTML += `
-                    <div class="bank-card privatbank-card ${!privatbankAvailable ? 'error' : ''}">
+                    <div class="bank-card privatbank-card ${privatUpdating ? 'updating' : ''} ${!privatbankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : 'privatbank-logo'}">П</div>
-                            <div>ПриватБанк ${firebaseStatus} ${cacheIndicator} <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>ПриватБанк ${privatUpdating ? '⟳' : '☁️'} <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${privatbankAvailable ? generateRateRows('privatbank', amount) : generateErrorRows()}
                     </div>`;
                 
+                // Raiffeisen card
                 resultsHTML += `
                     <div class="bank-card raiffeisen-card">
                         <div class="bank-header">
@@ -1009,6 +1043,7 @@
                         ${generateRateRows('raiffeisen', amount)}
                     </div>`;
                 
+                // Ukreximbank card
                 resultsHTML += `
                     <div class="bank-card ukreximbank-card">
                         <div class="bank-header">
@@ -1020,20 +1055,8 @@
                 
                 resultsDiv.innerHTML = resultsHTML;
                 
-                // Update timestamp
-                const now = new Date();
-                document.getElementById('last-updated').textContent = `Оновлено: ${now.toLocaleTimeString()}`;
-                
-                // Add click handlers
-                const cards = document.querySelectorAll('.bank-card');
-                cards.forEach(card => {
-                    card.addEventListener('touchstart', (e) => {
-                        isScrollingEnabled = false;
-                        setTimeout(() => { isScrollingEnabled = true; }, 300);
-                    }, { passive: true });
-                });
-                
-                setTimeout(initScroll, 50);
+                // Оновлення часу останнього оновлення
+                document.getElementById('last-updated').textContent = `Оновлено: ${timeString}`;
                 
             } catch (error) {
                 console.error('Помилка розрахунку:', error);
@@ -1084,18 +1107,6 @@
             `;
         }
 
-        // Auto-update check
-        async function checkDailyUpdate() {
-            const lastCheck = localStorage.getItem('lastRateCheck');
-            const today = getTodayDate();
-            
-            if (lastCheck !== today) {
-                console.log('New day detected, updating rates...');
-                await loadExchangeRates(true); // Force update
-                localStorage.setItem('lastRateCheck', today);
-            }
-        }
-
         // Global exports
         window.cycleCurrency = cycleCurrency;
         window.loadExchangeRates = loadExchangeRates;
@@ -1113,17 +1124,21 @@
             
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
-            // Load rates (instant from cache, background update)
+            // Завантаження курсів: спочатку кеш, потім фонове оновлення
             loadExchangeRates();
             
-            // Periodic checks
-            setInterval(checkDailyUpdate, 60 * 60 * 1000);
-            
+            // Перевірка оновлень при поверненні на сторінку
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') {
-                    checkDailyUpdate();
+                    // Перевіряємо чи є нові дані на сервері
+                    backgroundUpdateFromAPIs();
                 }
             });
+            
+            // Автоматичне оновлення кожні 15 хвилин
+            setInterval(() => {
+                backgroundUpdateFromAPIs();
+            }, 15 * 60 * 1000);
         });
     </script>
 </body>
