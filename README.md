@@ -1,6 +1,12 @@
 # **CurrencyCalc.UA**  
 **💵 Валютний калькулятор українських банків у стилі смартфона**  
-[![Demo Screenshot](https://github.com/user-attachments/assets/a869c5d1-e2a5-43e4-8fcf-3da39dbcb0c1)](https://carbon6600.github.io/CurrencyCalc.UA)  
+
+<a href="https://carbon6600.github.io/CurrencyCalc.UA/" target="_blank" rel="noopener noreferrer">
+  <img width="386" height="760" alt="Знімок екрана 2026-02-17 181420" 
+       src="https://github.com/user-attachments/assets/919ce864-af2a-44e8-ba88-b94f50652660" />
+</a>
+
+
 
 
 ### **🌐 Опис проекту**  
