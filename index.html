@@ -180,6 +180,12 @@
             animation: pulse 1s infinite;
         }
         
+        .bank-card.error {
+            background: #2a2a2a;
+            border-left: 5px solid #ff5555;
+            opacity: 0.7;
+        }
+        
         .monobank-card {
             background: linear-gradient(135deg, #6f2c91 0%, #8e44ad 100%);
             border-left: 5px solid #f39c12;
@@ -198,17 +204,6 @@
         .ukreximbank-card {
             background: linear-gradient(135deg, #0057b8 0%, #0070ff 100%);
             border-left: 5px solid #ffd700;
-        }
-
-        .test-card {
-            background: linear-gradient(135deg, #555555 0%, #333333 100%);
-            border-left: 5px solid #aaaaaa;
-        }
-        
-        .bank-card.error {
-            background: #2a2a2a;
-            border-left: 5px solid #ff5555;
-            opacity: 0.7;
         }
         
         .bank-header {
@@ -232,11 +227,6 @@
             font-weight: bold;
             color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .test-logo {
-            background-color: rgba(255,255,255,0.3);
-            border: 2px solid #fff;
         }
         
         .monobank-logo { 
@@ -276,33 +266,13 @@
             font-weight: bold;
             color: white;
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-            transition: color 0.3s;
-        }
-        
-        .rate-value.changed-up {
-            color: #27ae60;
-            animation: highlightUp 1s ease;
-        }
-        
-        .rate-value.changed-down {
-            color: #e74c3c;
-            animation: highlightDown 1s ease;
-        }
-        
-        @keyframes highlightUp {
-            0% { color: #27ae60; transform: scale(1.1); }
-            100% { color: white; transform: scale(1); }
-        }
-        
-        @keyframes highlightDown {
-            0% { color: #e74c3c; transform: scale(1.1); }
-            100% { color: white; transform: scale(1); }
         }
         
         .controls-row {
             display: flex;
             justify-content: space-between;
             margin-top: 8px;
+            gap: 10px;
         }
         
         .keypad {
@@ -348,16 +318,24 @@
             color: #aaa;
             text-align: center;
             margin-top: 8px;
+            flex: 1;
         }
         
         .refresh-btn {
             background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            padding: 8px;
-            font-size: 14px;
+            padding: 8px 12px;
+            font-size: 13px;
             border: none;
             color: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            white-space: nowrap;
+            min-width: 120px;
+        }
+        
+        .refresh-btn:disabled {
+            background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+            cursor: not-allowed;
         }
         
         .refresh-btn.updating {
@@ -448,7 +426,7 @@
                 </div>
                 <div class="controls-row">
                     <button class="refresh-btn" id="refresh-btn" onclick="loadExchangeRates(true)">Оновити курси</button>
-                    <div class="last-updated" id="last-updated"></div>
+                    <div class="last-updated" id="last-updated">Очікування...</div>
                 </div>
             </div>
             
@@ -478,7 +456,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, set, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -495,62 +473,55 @@
         const db = getDatabase(app);
         const auth = getAuth(app);
 
-        window.firebaseDB = db;
-        window.dbRef = ref;
-        window.firebaseAuth = auth;
-
         let isAuthenticated = false;
         let currentUser = null;
+        let isUpdating = false;
+        let updateTimeout = null;
 
-        // Анонімна авторизація
+        // Швидка анонімна авторизація з таймаутом
         async function initAuth() {
-            try {
-                const userCredential = await signInAnonymously(auth);
-                currentUser = userCredential.user;
-                isAuthenticated = true;
-                console.log('Анонімна авторизація успішна:', currentUser.uid);
-                return true;
-            } catch (error) {
-                console.error('Помилка авторизації:', error);
-                isAuthenticated = false;
-                return false;
-            }
+            return new Promise(async (resolve) => {
+                const timeout = setTimeout(() => {
+                    console.warn('Auth timeout');
+                    resolve(false);
+                }, 5000);
+
+                try {
+                    if (isAuthenticated && currentUser) {
+                        clearTimeout(timeout);
+                        resolve(true);
+                        return;
+                    }
+
+                    const userCredential = await signInAnonymously(auth);
+                    currentUser = userCredential.user;
+                    isAuthenticated = true;
+                    clearTimeout(timeout);
+                    console.log('Auth success:', currentUser.uid);
+                    resolve(true);
+                } catch (error) {
+                    clearTimeout(timeout);
+                    console.error('Auth error:', error);
+                    resolve(false);
+                }
+            });
         }
 
-        // Слідкуємо за станом авторизації
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
                 isAuthenticated = true;
-                console.log('Користувач авторизований:', user.uid);
-            } else {
-                isAuthenticated = false;
-                currentUser = null;
             }
         });
 
-        const currencySymbols = {
-            UAH: '₴',
-            USD: '$',
-            EUR: '€'
-        };
-
-        const currencyNames = {
-            UAH: 'ГРН',
-            USD: 'USD',
-            EUR: 'EUR'
-        };
-
-        const currencyCodes = {
-            USD: 840,
-            EUR: 978,
-            UAH: 980
-        };
-
+        const currencySymbols = { UAH: '₴', USD: '$', EUR: '€' };
+        const currencyNames = { UAH: 'ГРН', USD: 'USD', EUR: 'EUR' };
+        const currencyCodes = { USD: 840, EUR: 978, UAH: 980 };
         const currencyOrder = ['UAH', 'USD', 'EUR'];
         
-        // Поріг значущої зміни курсу (0.5%)
         const SIGNIFICANT_CHANGE_THRESHOLD = 0.005;
+        const API_TIMEOUT = 8000; // 8 секунд таймаут на API
+        const UPDATE_COOLDOWN = 30000; // 30 секунд між оновленнями
         
         let currentDisplay = '1';
         let currentCurrency = 'USD';
@@ -563,35 +534,27 @@
         let privatbankAvailable = false;
         let monobankAvailable = false;
         let isFirstInput = true;
-        let isBackgroundUpdating = false;
-        let rtdbListenerUnsubscribe = null;
-        let lastRatesHash = '';
+        let lastUpdateTime = 0;
+        let rtdbListener = null;
 
         function getTodayDate() {
             return new Date().toISOString().split('T')[0];
         }
 
-        // Генерація хешу для порівняння курсів
         function getRatesHash(rates) {
             if (!rates) return '';
-            const privat = rates.privatbank;
-            const mono = rates.monobank;
-            if (!privat && !mono) return '';
-            
             let hash = '';
-            if (privat) {
-                hash += `P${privat.USD?.buy||0},${privat.USD?.sell||0},${privat.EUR?.buy||0},${privat.EUR?.sell||0}`;
+            if (rates.privatbank) {
+                hash += `P${rates.privatbank.USD?.buy||0},${rates.privatbank.USD?.sell||0}`;
             }
-            if (mono) {
-                hash += `M${mono.USD?.buy||0},${mono.USD?.sell||0},${mono.EUR?.buy||0},${mono.EUR?.sell||0}`;
+            if (rates.monobank) {
+                hash += `M${rates.monobank.USD?.buy||0},${rates.monobank.USD?.sell||0}`;
             }
             return hash;
         }
 
-        // Перевірка значущої зміни курсу
         function hasSignificantChange(oldRates, newRates) {
             if (!oldRates || !newRates) return true;
-            
             const banks = ['privatbank', 'monobank'];
             const currencies = ['USD', 'EUR'];
             const types = ['buy', 'sell'];
@@ -601,24 +564,19 @@
                     for (const type of types) {
                         const oldVal = oldRates[bank]?.[curr]?.[type];
                         const newVal = newRates[bank]?.[curr]?.[type];
-                        
                         if (!oldVal || !newVal) continue;
-                        
                         const change = Math.abs(newVal - oldVal) / oldVal;
-                        if (change > SIGNIFICANT_CHANGE_THRESHOLD) {
-                            console.log(`Значна зміна ${bank} ${curr} ${type}: ${oldVal} -> ${newVal} (${(change*100).toFixed(2)}%)`);
-                            return true;
-                        }
+                        if (change > SIGNIFICANT_CHANGE_THRESHOLD) return true;
                     }
                 }
             }
             return false;
         }
 
-        // Збереження курсів у Realtime Database (тільки якщо авторизовані)
+        // Збереження з обмеженням частоти
         async function saveRatesToRTDB(rates, source) {
             if (!isAuthenticated) {
-                console.warn('Немає авторизації, пропускаємо запис');
+                console.log('No auth, skipping save');
                 return false;
             }
             
@@ -626,320 +584,300 @@
                 const today = getTodayDate();
                 const ratesRef = ref(db, `exchangeRates/${today}/${source}`);
                 
-                const data = {
+                await set(ratesRef, {
                     rates: rates,
                     timestamp: Date.now(),
                     date: today,
-                    updatedBy: currentUser?.uid || 'anonymous'
-                };
-                
-                await set(ratesRef, data);
-                console.log(`Збережено ${source} у RTDB`);
+                    source: source
+                });
+                console.log(`Saved ${source} to RTDB`);
                 return true;
             } catch (error) {
-                console.error('Помилка збереження в RTDB:', error);
+                console.error('Save error:', error);
                 return false;
             }
         }
 
-        // Миттєве завантаження з Realtime Database (cache first)
         async function loadFromRTDBCache() {
             try {
                 const today = getTodayDate();
                 const ratesRef = ref(db, `exchangeRates/${today}`);
-                
                 const snapshot = await get(ratesRef);
                 
                 if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    console.log('Завантажено з RTDB (cache/server):', data);
-                    return data;
+                    return snapshot.val();
                 }
                 return null;
             } catch (error) {
-                console.error('Помилка читання з RTDB:', error);
+                console.error('Load error:', error);
                 return null;
             }
         }
 
-        // Налаштування real-time listener для оновлень
         function setupRealtimeListener() {
-            if (rtdbListenerUnsubscribe) {
-                rtdbListenerUnsubscribe();
-            }
+            if (rtdbListener) rtdbListener();
             
             const today = getTodayDate();
             const ratesRef = ref(db, `exchangeRates/${today}`);
             
-            rtdbListenerUnsubscribe = onValue(ratesRef, (snapshot) => {
+            rtdbListener = onValue(ratesRef, (snapshot) => {
                 if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    console.log('Real-time оновлення з RTDB:', data);
-                    handleRatesUpdate(data, true);
+                    handleRatesUpdate(snapshot.val(), true);
                 }
             }, (error) => {
-                console.error('Помилка real-time listener:', error);
+                console.error('Listener error:', error);
             });
         }
 
-        // Обробка оновлення курсів з перевіркою значущих змін
         function handleRatesUpdate(data, isRealtime = false) {
-            let hasNewData = false;
-            let ratesChanged = false;
+            let changed = false;
             const oldRates = JSON.parse(JSON.stringify(exchangeRates));
             
             if (data.privatbank?.rates) {
-                const newPrivat = data.privatbank.rates;
-                if (hasSignificantChange(oldRates.privatbank, newPrivat)) {
-                    ratesChanged = true;
-                }
-                exchangeRates.privatbank = newPrivat;
+                if (hasSignificantChange(oldRates.privatbank, data.privatbank.rates)) changed = true;
+                exchangeRates.privatbank = data.privatbank.rates;
                 privatbankAvailable = true;
-                hasNewData = true;
             }
             
             if (data.monobank?.rates) {
-                const newMono = data.monobank.rates;
-                if (hasSignificantChange(oldRates.monobank, newMono)) {
-                    ratesChanged = true;
-                }
-                exchangeRates.monobank = newMono;
+                if (hasSignificantChange(oldRates.monobank, data.monobank.rates)) changed = true;
+                exchangeRates.monobank = data.monobank.rates;
                 monobankAvailable = true;
-                hasNewData = true;
             }
             
-            if (hasNewData) {
-                const newHash = getRatesHash(data);
-                if (newHash !== lastRatesHash || ratesChanged || isRealtime) {
-                    lastRatesHash = newHash;
-                    calculateRates();
-                    
-                    if (ratesChanged && isRealtime) {
-                        showUpdateNotification('Курси валют оновлено!');
-                    }
-                }
+            calculateRates();
+            
+            if (changed && isRealtime) {
+                showNotification('Курси оновлено!');
             }
         }
 
-        function showUpdateNotification(message) {
-            const lastUpdatedEl = document.getElementById('last-updated');
-            if (lastUpdatedEl) {
-                const originalText = lastUpdatedEl.textContent;
-                lastUpdatedEl.textContent = `✓ ${message}`;
-                lastUpdatedEl.style.color = '#27ae60';
-                setTimeout(() => {
-                    lastUpdatedEl.textContent = originalText;
-                    lastUpdatedEl.style.color = '#aaa';
-                }, 3000);
-            }
+        function showNotification(msg) {
+            const el = document.getElementById('last-updated');
+            const original = el.textContent;
+            el.textContent = `✓ ${msg}`;
+            el.style.color = '#27ae60';
+            setTimeout(() => {
+                el.textContent = original;
+                el.style.color = '#aaa';
+            }, 2000);
         }
 
-        // Фонове оновлення з API банків
-        async function backgroundUpdateFromAPIs() {
-            if (isBackgroundUpdating) return;
-            isBackgroundUpdating = true;
-            
-            const refreshBtn = document.getElementById('refresh-btn');
-            if (refreshBtn) {
-                refreshBtn.classList.add('updating');
-                refreshBtn.textContent = '⟳ Оновлення...';
-            }
-            
+        // Завантаження з API з таймаутом
+        async function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
+            return Promise.race([
+                fetch(url, options),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout')), timeout)
+                )
+            ]);
+        }
+
+        // Спроба через один проксі з таймаутом
+        async function tryProxy(proxyUrl, targetUrl) {
             try {
-                let updated = false;
+                const response = await fetchWithTimeout(
+                    proxyUrl + encodeURIComponent(targetUrl),
+                    { headers: { 'X-Requested-With': 'XMLHttpRequest' } },
+                    API_TIMEOUT
+                );
                 
-                const now = Date.now();
-                const lastUpdate = exchangeRates.monobank?.timestamp || 0;
-                const needsUpdate = (now - lastUpdate > 5 * 60 * 1000);
-                
-                if (needsUpdate) {
-                    const monoSuccess = await loadMonobankRates();
-                    if (monoSuccess) updated = true;
-                    
-                    const privatSuccess = await loadPrivatbankRates();
-                    if (privatSuccess) updated = true;
-                }
-                
-                if (updated) {
-                    // Зберігаємо тільки якщо авторизовані
-                    if (isAuthenticated) {
-                        await saveRatesToRTDB(exchangeRates.monobank, 'monobank');
-                        await saveRatesToRTDB(exchangeRates.privatbank, 'privatbank');
-                    } else {
-                        console.log('Немає авторизації, курси не збережено в базу');
-                    }
-                }
-                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
             } catch (error) {
-                console.error('Помилка фонового оновлення:', error);
-            } finally {
-                isBackgroundUpdating = false;
-                if (refreshBtn) {
-                    refreshBtn.classList.remove('updating');
-                    refreshBtn.textContent = 'Оновити курси';
-                }
+                throw error;
             }
         }
 
         async function loadMonobankRates() {
-            try {
-                const proxyUrls = [
-                    'https://api.allorigins.win/raw?url=',
-                    'https://corsproxy.io/?',
-                    'https://cors-anywhere.herokuapp.com/',
-                    'https://yacdn.org/proxy/'
-                ];
-                
-                const targetUrl = 'https://api.monobank.ua/bank/currency';
-                
-                for (const proxyUrl of proxyUrls) {
-                    try {
-                        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                        });
-                        
-                        if (!response.ok) continue;
-                        if (response.status === 429) {
-                            console.warn('Monobank rate limit reached');
-                            return false;
-                        }
-                        
-                        const data = await response.json();
-                        
-                        const usdRate = data.find(rate => 
-                            rate.currencyCodeA === currencyCodes.USD && 
-                            rate.currencyCodeB === currencyCodes.UAH
-                        );
-                        
-                        if (usdRate) {
-                            exchangeRates.monobank.USD = {
-                                buy: usdRate.rateBuy,
-                                sell: usdRate.rateSell,
-                                timestamp: Date.now()
-                            };
-                        }
-                        
-                        const eurRate = data.find(rate => 
-                            rate.currencyCodeA === currencyCodes.EUR && 
-                            rate.currencyCodeB === currencyCodes.UAH
-                        );
-                        
-                        if (eurRate) {
-                            exchangeRates.monobank.EUR = {
-                                buy: eurRate.rateBuy,
-                                sell: eurRate.rateSell,
-                                timestamp: Date.now()
-                            };
-                        }
-                        
-                        monobankAvailable = true;
-                        return true;
-                        
-                    } catch (proxyError) {
-                        console.error(`Помилка проксі ${proxyUrl}:`, proxyError);
+            const proxies = [
+                'https://api.allorigins.win/raw?url=',
+                'https://corsproxy.io/?',
+                'https://cors-anywhere.herokuapp.com/'
+            ];
+            
+            const targetUrl = 'https://api.monobank.ua/bank/currency';
+            
+            for (const proxy of proxies) {
+                try {
+                    console.log(`Trying Monobank via ${proxy}...`);
+                    const data = await tryProxy(proxy, targetUrl);
+                    
+                    const usdRate = data.find(r => r.currencyCodeA === 840 && r.currencyCodeB === 980);
+                    const eurRate = data.find(r => r.currencyCodeA === 978 && r.currencyCodeB === 980);
+                    
+                    if (usdRate) {
+                        exchangeRates.monobank.USD = {
+                            buy: usdRate.rateBuy,
+                            sell: usdRate.rateSell,
+                            timestamp: Date.now()
+                        };
                     }
+                    if (eurRate) {
+                        exchangeRates.monobank.EUR = {
+                            buy: eurRate.rateBuy,
+                            sell: eurRate.rateSell,
+                            timestamp: Date.now()
+                        };
+                    }
+                    
+                    monobankAvailable = true;
+                    console.log('Monobank loaded successfully');
+                    return true;
+                    
+                } catch (error) {
+                    console.warn(`Proxy ${proxy} failed:`, error.message);
+                    continue;
                 }
-                
-                return false;
-                
-            } catch (error) {
-                console.error('Помилка завантаження Monobank:', error);
-                return false;
             }
+            
+            console.error('All Monobank proxies failed');
+            return false;
         }
 
         async function loadPrivatbankRates() {
-            try {
-                const proxyUrls = [
-                    'https://api.allorigins.win/raw?url=',
-                    'https://corsproxy.io/?',
-                    'https://cors-anywhere.herokuapp.com/',
-                    'https://yacdn.org/proxy/'
-                ];
-                
-                const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?exchange&json&coursid=11';
-                
-                for (const proxyUrl of proxyUrls) {
-                    try {
-                        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                        });
-                        
-                        if (!response.ok) continue;
-                        
-                        const data = await response.json();
-                        
-                        data.forEach(rate => {
-                            if (rate.ccy === 'USD') {
-                                exchangeRates.privatbank.USD = {
-                                    buy: parseFloat(rate.buy),
-                                    sell: parseFloat(rate.sale),
-                                    timestamp: Date.now()
-                                };
-                            } else if (rate.ccy === 'EUR') {
-                                exchangeRates.privatbank.EUR = {
-                                    buy: parseFloat(rate.buy),
-                                    sell: parseFloat(rate.sale),
-                                    timestamp: Date.now()
-                                };
-                            }
-                        });
+            const proxies = [
+                'https://api.allorigins.win/raw?url=',
+                'https://corsproxy.io/?',
+                'https://cors-anywhere.herokuapp.com/'
+            ];
+            
+            const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?exchange&json&coursid=11';
+            
+            for (const proxy of proxies) {
+                try {
+                    console.log(`Trying Privatbank via ${proxy}...`);
+                    const data = await tryProxy(proxy, targetUrl);
+                    
+                    data.forEach(rate => {
+                        if (rate.ccy === 'USD') {
+                            exchangeRates.privatbank.USD = {
+                                buy: parseFloat(rate.buy),
+                                sell: parseFloat(rate.sale),
+                                timestamp: Date.now()
+                            };
+                        } else if (rate.ccy === 'EUR') {
+                            exchangeRates.privatbank.EUR = {
+                                buy: parseFloat(rate.buy),
+                                sell: parseFloat(rate.sale),
+                                timestamp: Date.now()
+                            };
+                        }
+                    });
+                    
+                    privatbankAvailable = true;
+                    console.log('Privatbank loaded successfully');
+                    return true;
+                    
+                } catch (error) {
+                    console.warn(`Proxy ${proxy} failed:`, error.message);
+                    continue;
+                }
+            }
+            
+            console.error('All Privatbank proxies failed');
+            return false;
+        }
 
-                        privatbankAvailable = true;
-                        return true;
-                        
-                    } catch (proxyError) {
-                        console.error(`Помилка проксі ${proxyUrl}:`, proxyError);
+        // Головна функція оновлення з контролем стану
+        async function loadExchangeRates(forceUpdate = false) {
+            const btn = document.getElementById('refresh-btn');
+            
+            // Перевірка cooldown
+            const now = Date.now();
+            if (!forceUpdate && (now - lastUpdateTime < UPDATE_COOLDOWN)) {
+                showNotification('Зачекайте 30 сек');
+                return;
+            }
+            
+            if (isUpdating) {
+                console.log('Update already in progress');
+                return;
+            }
+            
+            isUpdating = true;
+            lastUpdateTime = now;
+            
+            // UI оновлення
+            btn.disabled = true;
+            btn.classList.add('updating');
+            btn.textContent = '⟳ Оновлення...';
+            
+            // Таймаут на весь процес оновлення
+            updateTimeout = setTimeout(() => {
+                console.error('Update timeout!');
+                finishUpdate();
+                showNotification('Таймаут оновлення');
+            }, 25000); // 25 секунд максимум
+
+            try {
+                // Крок 1: Авторизація (швидко)
+                if (!isAuthenticated) {
+                    const authSuccess = await initAuth();
+                    if (!authSuccess) {
+                        console.warn('Auth failed, continuing with cache only');
                     }
                 }
+
+                // Крок 2: Завантаження з кешу RTDB (миттєво)
+                const cachedData = await loadFromRTDBCache();
+                if (cachedData) {
+                    handleRatesUpdate(cachedData, false);
+                    document.getElementById('last-updated').textContent = 'З кешу RTDB';
+                }
+
+                // Крок 3: Фонове оновлення з API (паралельно)
+                console.log('Starting API update...');
                 
-                return false;
-                
+                const [monoSuccess, privatSuccess] = await Promise.all([
+                    loadMonobankRates().catch(e => { console.error('Monobank error:', e); return false; }),
+                    loadPrivatbankRates().catch(e => { console.error('Privatbank error:', e); return false; })
+                ]);
+
+                console.log('API results:', { monoSuccess, privatSuccess });
+
+                // Зберігаємо в RTDB якщо є дані
+                if (monoSuccess || privatSuccess) {
+                    if (isAuthenticated) {
+                        const savePromises = [];
+                        if (monoSuccess) savePromises.push(saveRatesToRTDB(exchangeRates.monobank, 'monobank'));
+                        if (privatSuccess) savePromises.push(saveRatesToRTDB(exchangeRates.privatbank, 'privatbank'));
+                        
+                        await Promise.all(savePromises);
+                        showNotification('Збережено в базу');
+                    }
+                    
+                    // Оновлюємо UI з новими даними
+                    calculateRates();
+                } else if (!cachedData) {
+                    // Немає ні API ні кешу - використовуємо статику
+                    initStaticRates();
+                    showNotification('Статичні дані');
+                }
+
             } catch (error) {
-                console.error('Помилка завантаження Privatbank:', error);
-                return false;
+                console.error('Update error:', error);
+                showNotification('Помилка оновлення');
+            } finally {
+                finishUpdate();
             }
         }
 
-        // Головна функція завантаження
-        async function loadExchangeRates(forceUpdate = false) {
-            try {
-                // Спочатку авторизуємося
-                if (!isAuthenticated) {
-                    await initAuth();
-                }
-                
-                // Крок 1: Миттєве завантаження з RTDB
-                const cachedData = await loadFromRTDBCache();
-                
-                if (cachedData) {
-                    handleRatesUpdate(cachedData, false);
-                } else {
-                    initStaticRates();
-                }
-                
-                // Крок 2: Налаштування real-time listener
-                setupRealtimeListener();
-                
-                // Крок 3: Фонове оновлення
-                if (forceUpdate || !cachedData) {
-                    await backgroundUpdateFromAPIs();
-                } else {
-                    const lastUpdated = cachedData.privatbank?.timestamp || cachedData.monobank?.timestamp || 0;
-                    const hoursDiff = (Date.now() - lastUpdated) / (1000 * 60 * 60);
-                    
-                    if (hoursDiff > 1) {
-                        console.log('Дані застарілі, запускаємо фонове оновлення...');
-                        backgroundUpdateFromAPIs();
-                    }
-                }
-                
-            } catch (error) {
-                console.error('Помилка завантаження курсів:', error);
-                if (!privatbankAvailable && !monobankAvailable) {
-                    initStaticRates();
-                }
+        function finishUpdate() {
+            if (updateTimeout) {
+                clearTimeout(updateTimeout);
+                updateTimeout = null;
             }
+            
+            isUpdating = false;
+            
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = false;
+            btn.classList.remove('updating');
+            btn.textContent = 'Оновити курси';
+            
+            const now = new Date();
+            document.getElementById('last-updated').textContent = `Оновлено: ${now.toLocaleTimeString()}`;
         }
 
         function initStaticRates() {
@@ -956,15 +894,11 @@
             calculateRates();
         }
 
+        // UI функції
         function updateDisplay() {
             document.getElementById('display').textContent = currentDisplay;
-            updateCurrencyButtons();
-        }
-        
-        function updateCurrencyButtons() {
             const toggleBtn = document.getElementById('currency-toggle');
             toggleBtn.textContent = currencyNames[currentCurrency];
-            
             document.getElementById('amount-title').textContent = `${parseFloat(currentDisplay).toFixed(2)} ${currencyNames[currentCurrency]} =`;
         }
         
@@ -1010,9 +944,8 @@
         }
         
         function cycleCurrency() {
-            const currentIndex = currencyOrder.indexOf(currentCurrency);
-            const nextIndex = (currentIndex + 1) % currencyOrder.length;
-            setCurrency(currencyOrder[nextIndex]);
+            const idx = currencyOrder.indexOf(currentCurrency);
+            setCurrency(currencyOrder[(idx + 1) % currencyOrder.length]);
         }
 
         function setCurrency(currency) {
@@ -1036,113 +969,85 @@
         function calculateRates() {
             try {
                 let amount = parseFloat(currentDisplay);
-                if (isNaN(amount)) {
-                    throw new Error('Невірне число');
-                }
+                if (isNaN(amount)) amount = 1;
                 
                 document.getElementById('amount-title').textContent = `${amount.toFixed(2)} ${currencyNames[currentCurrency]} =`;
                 
                 const resultsDiv = document.getElementById('results');
-                let resultsHTML = '';
+                const timeStr = new Date().toLocaleTimeString();
                 
-                const now = new Date();
-                const timeString = now.toLocaleTimeString();
-                const authStatus = isAuthenticated ? '🔒' : '🔓';
+                let html = '';
                 
-                // Monobank card
-                const monoUpdating = isBackgroundUpdating && monobankAvailable;
-                resultsHTML += `
-                    <div class="bank-card monobank-card ${monoUpdating ? 'updating' : ''} ${!monobankAvailable ? 'error' : ''}">
+                // Monobank
+                html += `
+                    <div class="bank-card monobank-card ${!monobankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!monobankAvailable ? 'error-logo' : 'monobank-logo'}">M</div>
-                            <div>Monobank ${authStatus} ${monoUpdating ? '⟳' : '☁️'} ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>Monobank ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
-                        ${monobankAvailable ? generateRateRows('monobank', amount) : generateErrorRows()}
-                        <div class="update-info">Оновлено: ${timeString}</div>
+                        ${monobankAvailable ? generateRows('monobank', amount) : generateError()}
+                        <div class="update-info">${timeStr}</div>
                     </div>`;
                 
-                // Privatbank card
-                const privatUpdating = isBackgroundUpdating && privatbankAvailable;
-                resultsHTML += `
-                    <div class="bank-card privatbank-card ${privatUpdating ? 'updating' : ''} ${!privatbankAvailable ? 'error' : ''}">
+                // Privatbank
+                html += `
+                    <div class="bank-card privatbank-card ${!privatbankAvailable ? 'error' : ''}">
                         <div class="bank-header">
                             <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : 'privatbank-logo'}">П</div>
-                            <div>ПриватБанк ${authStatus} ${privatUpdating ? '⟳' : '☁️'} <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                            <div>ПриватБанк <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
-                        ${privatbankAvailable ? generateRateRows('privatbank', amount) : generateErrorRows()}
+                        ${privatbankAvailable ? generateRows('privatbank', amount) : generateError()}
                     </div>`;
                 
-                // Raiffeisen card
-                resultsHTML += `
+                // Raiffeisen
+                html += `
                     <div class="bank-card raiffeisen-card">
                         <div class="bank-header">
                             <div class="bank-logo raiffeisen-logo">Р</div>
                             <div>Райффайзен <span class="static-data-message">(статика)</span></div>
                         </div>
-                        ${generateRateRows('raiffeisen', amount)}
+                        ${generateRows('raiffeisen', amount)}
                     </div>`;
                 
-                // Ukreximbank card
-                resultsHTML += `
+                // Ukreximbank
+                html += `
                     <div class="bank-card ukreximbank-card">
                         <div class="bank-header">
                             <div class="bank-logo ukreximbank-logo">У</div>
                             <div>Укрексімбанк <span class="static-data-message">(статика)</span></div>
                         </div>
-                        ${generateRateRows('ukreximbank', amount)}
+                        ${generateRows('ukreximbank', amount)}
                     </div>`;
                 
-                resultsDiv.innerHTML = resultsHTML;
-                
-                document.getElementById('last-updated').textContent = `Оновлено: ${timeString} ${authStatus}`;
+                resultsDiv.innerHTML = html;
                 
             } catch (error) {
-                console.error('Помилка розрахунку:', error);
+                console.error('Calculate error:', error);
             }
         }
         
-        function generateRateRows(bank, amount) {
+        function generateRows(bank, amount) {
             if (currentCurrency === 'UAH') {
                 return `
-                    <div class="rate-row">
-                        <span>USD купівля:</span>
-                        <span class="rate-value">${(amount / exchangeRates[bank].USD.buy).toFixed(2)} $</span>
-                    </div>
-                    <div class="rate-row">
-                        <span>USD продаж:</span>
-                        <span class="rate-value">${(amount / exchangeRates[bank].USD.sell).toFixed(2)} $</span>
-                    </div>
-                    <div class="rate-row">
-                        <span>EUR купівля:</span>
-                        <span class="rate-value">${(amount / exchangeRates[bank].EUR.buy).toFixed(2)} €</span>
-                    </div>`;
+                    <div class="rate-row"><span>USD купівля:</span><span class="rate-value">${(amount / exchangeRates[bank].USD.buy).toFixed(2)} $</span></div>
+                    <div class="rate-row"><span>USD продаж:</span><span class="rate-value">${(amount / exchangeRates[bank].USD.sell).toFixed(2)} $</span></div>
+                    <div class="rate-row"><span>EUR купівля:</span><span class="rate-value">${(amount / exchangeRates[bank].EUR.buy).toFixed(2)} €</span></div>`;
             } else {
-                const currencyKey = currentCurrency;
-                const otherCurrencyKey = currentCurrency === 'USD' ? 'EUR' : 'USD';
+                const curr = currentCurrency;
+                const other = curr === 'USD' ? 'EUR' : 'USD';
+                const crossRate = curr === 'USD' 
+                    ? (exchangeRates[bank].EUR.buy / exchangeRates[bank].USD.sell)
+                    : (exchangeRates[bank].USD.buy / exchangeRates[bank].EUR.sell);
                 
                 return `
-                    <div class="rate-row">
-                        <span>UAH купівля:</span>
-                        <span class="rate-value">${(amount * exchangeRates[bank][currencyKey].buy).toFixed(2)} ₴</span>
-                    </div>
-                    <div class="rate-row">
-                        <span>UAH продаж:</span>
-                        <span class="rate-value">${(amount * exchangeRates[bank][currencyKey].sell).toFixed(2)} ₴</span>
-                    </div>
-                    <div class="rate-row">
-                        <span>${otherCurrencyKey}:</span>
-                        <span class="rate-value">${(amount * (currentCurrency === 'USD' ? 
-                            (exchangeRates[bank].EUR.buy / exchangeRates[bank].USD.sell) : 
-                            (exchangeRates[bank].USD.buy / exchangeRates[bank].EUR.sell))).toFixed(2)} ${currencySymbols[otherCurrencyKey]}</span>
-                    </div>`;
+                    <div class="rate-row"><span>UAH купівля:</span><span class="rate-value">${(amount * exchangeRates[bank][curr].buy).toFixed(2)} ₴</span></div>
+                    <div class="rate-row"><span>UAH продаж:</span><span class="rate-value">${(amount * exchangeRates[bank][curr].sell).toFixed(2)} ₴</span></div>
+                    <div class="rate-row"><span>${other}:</span><span class="rate-value">${(amount * crossRate).toFixed(2)} ${currencySymbols[other]}</span></div>`;
             }
         }
         
-        function generateErrorRows() {
-            return `
-                <div class="error-message">Не вдалося завантажити актуальні курси</div>
-                <div class="static-data-message">Використовуються статичні дані</div>
-            `;
+        function generateError() {
+            return `<div class="error-message">API недоступне</div><div class="static-data-message">Використовуються статичні дані</div>`;
         }
 
         // Global exports
@@ -1154,28 +1059,34 @@
         window.plusMinus = plusMinus;
         window.calculate = calculate;
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
             currentDisplay = '1';
             currentCurrency = 'USD';
             updateDisplay();
             
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
-            // Завантаження курсів з авторизацією
-            loadExchangeRates();
-            
-            // Перевірка оновлень при поверненні на сторінку
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible') {
-                    backgroundUpdateFromAPIs();
+            // Перше завантаження - тільки з RTDB, без API
+            loadFromRTDBCache().then(data => {
+                if (data) {
+                    handleRatesUpdate(data, false);
+                    document.getElementById('last-updated').textContent = 'Завантажено з кешу';
+                } else {
+                    initStaticRates();
+                    document.getElementById('last-updated').textContent = 'Статичні дані';
                 }
+                setupRealtimeListener();
             });
             
-            // Автоматичне оновлення кожні 15 хвилин
+            // Автооновлення кожні 10 хвилин (тільки якщо не оновлювалися вручну)
             setInterval(() => {
-                backgroundUpdateFromAPIs();
-            }, 15 * 60 * 1000);
+                const now = Date.now();
+                if (now - lastUpdateTime > 10 * 60 * 1000) {
+                    console.log('Auto update triggered');
+                    loadExchangeRates(false);
+                }
+            }, 60000); // перевірка кожну хвилину
         });
     </script>
 </body>
