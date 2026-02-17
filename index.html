@@ -146,8 +146,11 @@
             border-radius: 2px;
         }
         
-        .results-content {
-            position: relative;
+        .amount-title {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 8px;
+            padding-left: 4px;
         }
         
         .bank-slider {
@@ -180,12 +183,6 @@
             animation: pulse 1s infinite;
         }
         
-        .bank-card.error {
-            background: #2a2a2a;
-            border-left: 5px solid #ff5555;
-            opacity: 0.7;
-        }
-        
         .monobank-card {
             background: linear-gradient(135deg, #6f2c91 0%, #8e44ad 100%);
             border-left: 5px solid #f39c12;
@@ -204,6 +201,12 @@
         .ukreximbank-card {
             background: linear-gradient(135deg, #0057b8 0%, #0070ff 100%);
             border-left: 5px solid #ffd700;
+        }
+        
+        .bank-card.error {
+            background: #2a2a2a;
+            border-left: 5px solid #ff5555;
+            opacity: 0.7;
         }
         
         .bank-header {
@@ -227,24 +230,6 @@
             font-weight: bold;
             color: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .monobank-logo { 
-            background-color: rgba(255,255,255,0.2);
-            border: 2px solid white;
-        }
-        
-        .privatbank-logo { 
-            background-color: rgba(255,255,255,0.2);
-            border: 2px solid white;
-        }
-        
-        .raiffeisen-logo { 
-            background-color: rgba(255,255,255,0.2);
-            border: 2px solid white;
-        }
-        
-        .ukreximbank-logo { 
             background-color: rgba(255,255,255,0.2);
             border: 2px solid white;
         }
@@ -268,13 +253,253 @@
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
         
-        .controls-row {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 8px;
-            gap: 10px;
+        .update-info {
+            color: #aaa;
+            font-size: 10px;
+            text-align: center;
+            margin-top: 4px;
         }
         
+        .static-data-message {
+            color: #ff9500;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 4px;
+            font-style: italic;
+        }
+        
+        .error-message {
+            color: #ff5555;
+            text-align: center;
+            padding: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+        
+        .cashless-message {
+            color: #fff;
+            background-color: rgba(0,0,0,0.2);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 5px;
+        }
+        
+        /* === CONTROLS ROW WITH UX STATUS === */
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+            min-height: 45px;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            padding: 10px 14px;
+            font-size: 12px;
+            border: none;
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:disabled {
+            background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .refresh-btn.updating {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            animation: pulse 1s infinite;
+        }
+
+        /* === COMPACT UX STATUS === */
+        .ux-status-compact {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .status-pill {
+            background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%);
+            border-radius: 20px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-pill::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, currentColor, transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .status-pill.active::before {
+            opacity: 1;
+            animation: scanline 2s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .status-icon-compact {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .cloud-icon-compact {
+            width: 16px;
+            height: 16px;
+        }
+
+        .cloud-base {
+            fill: currentColor;
+        }
+
+        .status-pill.loading .cloud-icon-compact {
+            animation: float 2s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
+        .sync-ring {
+            position: absolute;
+            inset: -2px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            opacity: 0;
+        }
+
+        .status-pill.loading .sync-ring {
+            opacity: 1;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-text-compact {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .status-title-compact {
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+
+        .status-subtitle-compact {
+            color: #888;
+            font-size: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .live-dot {
+            width: 5px;
+            height: 5px;
+            background: currentColor;
+            border-radius: 50%;
+            animation: pulse-dot 1.5s ease infinite;
+            box-shadow: 0 0 5px currentColor;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* Status colors */
+        .status-cloud {
+            color: #3498db;
+        }
+
+        .status-cloud .status-icon-compact {
+            background: rgba(52, 152, 219, 0.15);
+        }
+
+        .status-cache {
+            color: #27ae60;
+        }
+
+        .status-cache .status-icon-compact {
+            background: rgba(39, 174, 96, 0.15);
+        }
+
+        .status-static {
+            color: #f39c12;
+        }
+
+        .status-static .status-icon-compact {
+            background: rgba(243, 156, 18, 0.15);
+        }
+
+        .status-error {
+            color: #e74c3c;
+        }
+
+        .status-error .status-icon-compact {
+            background: rgba(231, 76, 60, 0.15);
+        }
+
+        .status-offline {
+            color: #95a5a6;
+        }
+
+        .status-offline .status-icon-compact {
+            background: rgba(149, 165, 166, 0.15);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #ff9500;
+            animation: pulse 1.5s infinite;
+            font-size: 14px;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
         .keypad {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -312,83 +537,6 @@
         button.plus-minus {
             background-color: #555;
         }
-        
-        .last-updated {
-            font-size: 11px;
-            color: #aaa;
-            text-align: center;
-            margin-top: 8px;
-            flex: 1;
-        }
-        
-        .refresh-btn {
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            padding: 8px 12px;
-            font-size: 13px;
-            border: none;
-            color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            white-space: nowrap;
-            min-width: 120px;
-        }
-        
-        .refresh-btn:disabled {
-            background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
-            cursor: not-allowed;
-        }
-        
-        .refresh-btn.updating {
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-            animation: pulse 1s infinite;
-        }
-        
-        .error-message {
-            color: #ff5555;
-            text-align: center;
-            padding: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            margin-top: 4px;
-        }
-        
-        .static-data-message {
-            color: #ff9500;
-            font-size: 11px;
-            text-align: center;
-            margin-top: 4px;
-            font-style: italic;
-        }
-        
-        .update-info {
-            color: #aaa;
-            font-size: 10px;
-            text-align: center;
-            margin-top: 4px;
-        }
-        
-        .cashless-message {
-            color: #fff;
-            background-color: rgba(0,0,0,0.2);
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-size: 10px;
-            margin-left: 5px;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #ff9500;
-            animation: pulse 1.5s infinite;
-            font-size: 14px;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
-        }
 
         @media (max-height: 700px) {
             .phone {
@@ -416,17 +564,33 @@
                 </div>
                 <div class="results-wrapper">
                     <div class="results-container" id="results-container">
-                        <div class="results-content" id="results-content">
-                            <div class="amount-title" id="amount-title">1 USD =</div>
-                            <div class="bank-slider" id="results">
-                                <div class="loading">Завантаження курсів...</div>
-                            </div>
+                        <div class="amount-title" id="amount-title">1.00 USD =</div>
+                        <div class="bank-slider" id="results">
+                            <div class="loading">Завантаження курсів...</div>
                         </div>
                     </div>
                 </div>
                 <div class="controls-row">
-                    <button class="refresh-btn" id="refresh-btn" onclick="loadExchangeRates(true)">Оновити курси</button>
-                    <div class="last-updated" id="last-updated">Очікування...</div>
+                    <button class="refresh-btn" id="refresh-btn" onclick="loadExchangeRates(true)">Оновити</button>
+                    
+                    <!-- COMPACT UX STATUS -->
+                    <div class="ux-status-compact" id="uxStatusContainer">
+                        <div class="status-pill status-cloud loading active" id="statusPill">
+                            <div class="status-icon-compact">
+                                <svg class="cloud-icon-compact" viewBox="0 0 24 24">
+                                    <path class="cloud-base" d="M18.5 12c.8 0 1.5.2 2.2.6 1.3.7 2.1 2 2.3 3.4.1 1.4-.5 2.8-1.5 3.7-.9.8-2.1 1.3-3.3 1.3H6.5c-1.8 0-3.4-1-4.2-2.6-.8-1.6-.6-3.5.5-4.9.9-1.2 2.3-1.9 3.8-1.9.1 0 .2 0 .3.1C7.2 8.3 9.9 6 13 6c2.8 0 5.3 1.7 6.4 4.2.3.1.7.1 1.1.1z"/>
+                                </svg>
+                                <div class="sync-ring"></div>
+                            </div>
+                            <div class="status-text-compact">
+                                <div class="status-title-compact">
+                                    Хмара
+                                    <div class="live-dot"></div>
+                                </div>
+                                <div class="status-subtitle-compact" id="statusSubtitle">Завантаження...</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -478,41 +642,64 @@
         let isUpdating = false;
         let updateTimeout = null;
 
-        // Швидка анонімна авторизація з таймаутом
-        async function initAuth() {
-            return new Promise(async (resolve) => {
-                const timeout = setTimeout(() => {
-                    console.warn('Auth timeout');
-                    resolve(false);
-                }, 5000);
+        // Compact UX Status Controller
+        const statusController = {
+            pill: document.getElementById('statusPill'),
+            subtitle: document.getElementById('statusSubtitle'),
+            
+            icons: {
+                cloud: `<svg class="cloud-icon-compact" viewBox="0 0 24 24"><path class="cloud-base" d="M18.5 12c.8 0 1.5.2 2.2.6 1.3.7 2.1 2 2.3 3.4.1 1.4-.5 2.8-1.5 3.7-.9.8-2.1 1.3-3.3 1.3H6.5c-1.8 0-3.4-1-4.2-2.6-.8-1.6-.6-3.5.5-4.9.9-1.2 2.3-1.9 3.8-1.9.1 0 .2 0 .3.1C7.2 8.3 9.9 6 13 6c2.8 0 5.3 1.7 6.4 4.2.3.1.7.1 1.1.1z"/></svg>`,
+                cache: `<svg class="cloud-icon-compact" viewBox="0 0 24 24"><path class="cloud-base" d="M18.5 12c.8 0 1.5.2 2.2.6 1.3.7 2.1 2 2.3 3.4.1 1.4-.5 2.8-1.5 3.7-.9.8-2.1 1.3-3.3 1.3H6.5c-1.8 0-3.4-1-4.2-2.6-.8-1.6-.6-3.5.5-4.9.9-1.2 2.3-1.9 3.8-1.9.1 0 .2 0 .3.1C7.2 8.3 9.9 6 13 6c2.8 0 5.3 1.7 6.4 4.2.3.1.7.1 1.1.1z"/><circle cx="18" cy="18" r="4" fill="#27ae60"/><path d="M16 18l1.5 1.5 3-3" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+                static: `<svg class="cloud-icon-compact" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" opacity="0.4"/><path d="M9 12h6M9 15h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+                error: `<svg class="cloud-icon-compact" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2"/><path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>`,
+                offline: `<svg class="cloud-icon-compact" viewBox="0 0 24 24"><path class="cloud-base" d="M18.5 12c.8 0 1.5.2 2.2.6 1.3.7 2.1 2 2.3 3.4.1 1.4-.5 2.8-1.5 3.7-.9.8-2.1 1.3-3.3 1.3H6.5c-1.8 0-3.4-1-4.2-2.6-.8-1.6-.6-3.5.5-4.9.9-1.2 2.3-1.9 3.8-1.9.1 0 .2 0 .3.1C7.2 8.3 9.9 6 13 6c2.8 0 5.3 1.7 6.4 4.2.3.1.7.1 1.1.1z" opacity="0.4"/><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`
+            },
 
-                try {
-                    if (isAuthenticated && currentUser) {
-                        clearTimeout(timeout);
-                        resolve(true);
-                        return;
-                    }
+            titles: {
+                cloud: 'Хмара',
+                cache: 'Кеш',
+                static: 'Статика',
+                error: 'Помилка',
+                offline: 'Офлайн'
+            },
 
-                    const userCredential = await signInAnonymously(auth);
-                    currentUser = userCredential.user;
-                    isAuthenticated = true;
-                    clearTimeout(timeout);
-                    console.log('Auth success:', currentUser.uid);
-                    resolve(true);
-                } catch (error) {
-                    clearTimeout(timeout);
-                    console.error('Auth error:', error);
-                    resolve(false);
-                }
-            });
-        }
+            set(state, subtitle = null, loading = false) {
+                const isLoading = loading || state === 'cloud';
+                
+                this.pill.className = `status-pill status-${state} ${isLoading ? 'loading active' : ''}`;
+                
+                this.pill.innerHTML = `
+                    <div class="status-icon-compact">
+                        ${this.icons[state]}
+                        <div class="sync-ring"></div>
+                    </div>
+                    <div class="status-text-compact">
+                        <div class="status-title-compact">
+                            ${this.titles[state]}
+                            ${isLoading ? '<div class="live-dot"></div>' : ''}
+                        </div>
+                        <div class="status-subtitle-compact">${subtitle || this.getDefaultSubtitle(state)}</div>
+                    </div>
+                `;
+                
+                this.subtitle = this.pill.querySelector('.status-subtitle-compact');
+            },
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                isAuthenticated = true;
+            updateSubtitle(text) {
+                if (this.subtitle) this.subtitle.textContent = text;
+            },
+
+            getDefaultSubtitle(state) {
+                const defaults = {
+                    cloud: 'Завантаження...',
+                    cache: 'Актуальні дані',
+                    static: 'API недоступне',
+                    error: 'Немає з\'єднання',
+                    offline: 'Дані застарілі'
+                };
+                return defaults[state];
             }
-        });
+        };
 
         const currencySymbols = { UAH: '₴', USD: '$', EUR: '€' };
         const currencyNames = { UAH: 'ГРН', USD: 'USD', EUR: 'EUR' };
@@ -520,8 +707,8 @@
         const currencyOrder = ['UAH', 'USD', 'EUR'];
         
         const SIGNIFICANT_CHANGE_THRESHOLD = 0.005;
-        const API_TIMEOUT = 8000; // 8 секунд таймаут на API
-        const UPDATE_COOLDOWN = 30000; // 30 секунд між оновленнями
+        const API_TIMEOUT = 8000;
+        const UPDATE_COOLDOWN = 30000;
         
         let currentDisplay = '1';
         let currentCurrency = 'USD';
@@ -541,16 +728,95 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        function getRatesHash(rates) {
-            if (!rates) return '';
-            let hash = '';
-            if (rates.privatbank) {
-                hash += `P${rates.privatbank.USD?.buy||0},${rates.privatbank.USD?.sell||0}`;
+        async function initAuth() {
+            return new Promise(async (resolve) => {
+                const timeout = setTimeout(() => resolve(false), 5000);
+                try {
+                    if (isAuthenticated && currentUser) {
+                        clearTimeout(timeout);
+                        resolve(true);
+                        return;
+                    }
+                    const userCredential = await signInAnonymously(auth);
+                    currentUser = userCredential.user;
+                    isAuthenticated = true;
+                    clearTimeout(timeout);
+                    resolve(true);
+                } catch (error) {
+                    clearTimeout(timeout);
+                    resolve(false);
+                }
+            });
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                isAuthenticated = true;
             }
-            if (rates.monobank) {
-                hash += `M${rates.monobank.USD?.buy||0},${rates.monobank.USD?.sell||0}`;
+        });
+
+        async function saveRatesToRTDB(rates, source) {
+            if (!isAuthenticated) return false;
+            try {
+                const today = getTodayDate();
+                const ratesRef = ref(db, `exchangeRates/${today}/${source}`);
+                await set(ratesRef, {
+                    rates: rates,
+                    timestamp: Date.now(),
+                    date: today,
+                    source: source
+                });
+                return true;
+            } catch (error) {
+                return false;
             }
-            return hash;
+        }
+
+        async function loadFromRTDBCache() {
+            try {
+                const today = getTodayDate();
+                const ratesRef = ref(db, `exchangeRates/${today}`);
+                const snapshot = await get(ratesRef);
+                return snapshot.exists() ? snapshot.val() : null;
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function setupRealtimeListener() {
+            if (rtdbListener) rtdbListener();
+            const today = getTodayDate();
+            const ratesRef = ref(db, `exchangeRates/${today}`);
+            rtdbListener = onValue(ratesRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    handleRatesUpdate(snapshot.val(), true);
+                }
+            });
+        }
+
+        function handleRatesUpdate(data, isRealtime = false) {
+            let changed = false;
+            const oldRates = JSON.parse(JSON.stringify(exchangeRates));
+            
+            if (data.privatbank?.rates) {
+                if (hasSignificantChange(oldRates.privatbank, data.privatbank.rates)) changed = true;
+                exchangeRates.privatbank = data.privatbank.rates;
+                privatbankAvailable = true;
+            }
+            
+            if (data.monobank?.rates) {
+                if (hasSignificantChange(oldRates.monobank, data.monobank.rates)) changed = true;
+                exchangeRates.monobank = data.monobank.rates;
+                monobankAvailable = true;
+            }
+            
+            calculateRates();
+            
+            if (isRealtime && changed && !isUpdating) {
+                statusController.set('cache', 'Нові курси!');
+                setTimeout(() => statusController.set('cache'), 2000);
+            }
         }
 
         function hasSignificantChange(oldRates, newRates) {
@@ -573,120 +839,21 @@
             return false;
         }
 
-        // Збереження з обмеженням частоти
-        async function saveRatesToRTDB(rates, source) {
-            if (!isAuthenticated) {
-                console.log('No auth, skipping save');
-                return false;
-            }
-            
-            try {
-                const today = getTodayDate();
-                const ratesRef = ref(db, `exchangeRates/${today}/${source}`);
-                
-                await set(ratesRef, {
-                    rates: rates,
-                    timestamp: Date.now(),
-                    date: today,
-                    source: source
-                });
-                console.log(`Saved ${source} to RTDB`);
-                return true;
-            } catch (error) {
-                console.error('Save error:', error);
-                return false;
-            }
-        }
-
-        async function loadFromRTDBCache() {
-            try {
-                const today = getTodayDate();
-                const ratesRef = ref(db, `exchangeRates/${today}`);
-                const snapshot = await get(ratesRef);
-                
-                if (snapshot.exists()) {
-                    return snapshot.val();
-                }
-                return null;
-            } catch (error) {
-                console.error('Load error:', error);
-                return null;
-            }
-        }
-
-        function setupRealtimeListener() {
-            if (rtdbListener) rtdbListener();
-            
-            const today = getTodayDate();
-            const ratesRef = ref(db, `exchangeRates/${today}`);
-            
-            rtdbListener = onValue(ratesRef, (snapshot) => {
-                if (snapshot.exists()) {
-                    handleRatesUpdate(snapshot.val(), true);
-                }
-            }, (error) => {
-                console.error('Listener error:', error);
-            });
-        }
-
-        function handleRatesUpdate(data, isRealtime = false) {
-            let changed = false;
-            const oldRates = JSON.parse(JSON.stringify(exchangeRates));
-            
-            if (data.privatbank?.rates) {
-                if (hasSignificantChange(oldRates.privatbank, data.privatbank.rates)) changed = true;
-                exchangeRates.privatbank = data.privatbank.rates;
-                privatbankAvailable = true;
-            }
-            
-            if (data.monobank?.rates) {
-                if (hasSignificantChange(oldRates.monobank, data.monobank.rates)) changed = true;
-                exchangeRates.monobank = data.monobank.rates;
-                monobankAvailable = true;
-            }
-            
-            calculateRates();
-            
-            if (changed && isRealtime) {
-                showNotification('Курси оновлено!');
-            }
-        }
-
-        function showNotification(msg) {
-            const el = document.getElementById('last-updated');
-            const original = el.textContent;
-            el.textContent = `✓ ${msg}`;
-            el.style.color = '#27ae60';
-            setTimeout(() => {
-                el.textContent = original;
-                el.style.color = '#aaa';
-            }, 2000);
-        }
-
-        // Завантаження з API з таймаутом
         async function fetchWithTimeout(url, options = {}, timeout = API_TIMEOUT) {
             return Promise.race([
                 fetch(url, options),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Timeout')), timeout)
-                )
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout))
             ]);
         }
 
-        // Спроба через один проксі з таймаутом
         async function tryProxy(proxyUrl, targetUrl) {
-            try {
-                const response = await fetchWithTimeout(
-                    proxyUrl + encodeURIComponent(targetUrl),
-                    { headers: { 'X-Requested-With': 'XMLHttpRequest' } },
-                    API_TIMEOUT
-                );
-                
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                return await response.json();
-            } catch (error) {
-                throw error;
-            }
+            const response = await fetchWithTimeout(
+                proxyUrl + encodeURIComponent(targetUrl),
+                { headers: { 'X-Requested-With': 'XMLHttpRequest' } },
+                API_TIMEOUT
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.json();
         }
 
         async function loadMonobankRates() {
@@ -695,12 +862,11 @@
                 'https://corsproxy.io/?',
                 'https://cors-anywhere.herokuapp.com/'
             ];
-            
             const targetUrl = 'https://api.monobank.ua/bank/currency';
             
             for (const proxy of proxies) {
                 try {
-                    console.log(`Trying Monobank via ${proxy}...`);
+                    statusController.updateSubtitle('Monobank...');
                     const data = await tryProxy(proxy, targetUrl);
                     
                     const usdRate = data.find(r => r.currencyCodeA === 840 && r.currencyCodeB === 980);
@@ -722,16 +888,11 @@
                     }
                     
                     monobankAvailable = true;
-                    console.log('Monobank loaded successfully');
                     return true;
-                    
                 } catch (error) {
-                    console.warn(`Proxy ${proxy} failed:`, error.message);
                     continue;
                 }
             }
-            
-            console.error('All Monobank proxies failed');
             return false;
         }
 
@@ -741,12 +902,11 @@
                 'https://corsproxy.io/?',
                 'https://cors-anywhere.herokuapp.com/'
             ];
-            
             const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?exchange&json&coursid=11';
             
             for (const proxy of proxies) {
                 try {
-                    console.log(`Trying Privatbank via ${proxy}...`);
+                    statusController.updateSubtitle('Privatbank...');
                     const data = await tryProxy(proxy, targetUrl);
                     
                     data.forEach(rate => {
@@ -766,98 +926,80 @@
                     });
                     
                     privatbankAvailable = true;
-                    console.log('Privatbank loaded successfully');
                     return true;
-                    
                 } catch (error) {
-                    console.warn(`Proxy ${proxy} failed:`, error.message);
                     continue;
                 }
             }
-            
-            console.error('All Privatbank proxies failed');
             return false;
         }
 
-        // Головна функція оновлення з контролем стану
         async function loadExchangeRates(forceUpdate = false) {
             const btn = document.getElementById('refresh-btn');
-            
-            // Перевірка cooldown
             const now = Date.now();
+            
             if (!forceUpdate && (now - lastUpdateTime < UPDATE_COOLDOWN)) {
-                showNotification('Зачекайте 30 сек');
+                statusController.set('cache', 'Зачекайте...', false);
+                setTimeout(() => statusController.set('cache'), 1500);
                 return;
             }
             
-            if (isUpdating) {
-                console.log('Update already in progress');
-                return;
-            }
+            if (isUpdating) return;
             
             isUpdating = true;
             lastUpdateTime = now;
             
-            // UI оновлення
             btn.disabled = true;
             btn.classList.add('updating');
-            btn.textContent = '⟳ Оновлення...';
             
-            // Таймаут на весь процес оновлення
+            statusController.set('cloud', 'Firebase...', true);
+            
             updateTimeout = setTimeout(() => {
-                console.error('Update timeout!');
                 finishUpdate();
-                showNotification('Таймаут оновлення');
-            }, 25000); // 25 секунд максимум
+                statusController.set('error', 'Таймаут');
+            }, 25000);
 
             try {
-                // Крок 1: Авторизація (швидко)
                 if (!isAuthenticated) {
-                    const authSuccess = await initAuth();
-                    if (!authSuccess) {
-                        console.warn('Auth failed, continuing with cache only');
-                    }
+                    statusController.updateSubtitle('Авторизація...');
+                    await initAuth();
                 }
 
-                // Крок 2: Завантаження з кешу RTDB (миттєво)
+                statusController.updateSubtitle('Кеш RTDB...');
                 const cachedData = await loadFromRTDBCache();
+                
                 if (cachedData) {
                     handleRatesUpdate(cachedData, false);
-                    document.getElementById('last-updated').textContent = 'З кешу RTDB';
                 }
 
-                // Крок 3: Фонове оновлення з API (паралельно)
-                console.log('Starting API update...');
+                statusController.set('cloud', 'API банків...', true);
                 
                 const [monoSuccess, privatSuccess] = await Promise.all([
-                    loadMonobankRates().catch(e => { console.error('Monobank error:', e); return false; }),
-                    loadPrivatbankRates().catch(e => { console.error('Privatbank error:', e); return false; })
+                    loadMonobankRates().catch(() => false),
+                    loadPrivatbankRates().catch(() => false)
                 ]);
 
-                console.log('API results:', { monoSuccess, privatSuccess });
-
-                // Зберігаємо в RTDB якщо є дані
                 if (monoSuccess || privatSuccess) {
                     if (isAuthenticated) {
+                        statusController.updateSubtitle('Збереження...');
                         const savePromises = [];
                         if (monoSuccess) savePromises.push(saveRatesToRTDB(exchangeRates.monobank, 'monobank'));
                         if (privatSuccess) savePromises.push(saveRatesToRTDB(exchangeRates.privatbank, 'privatbank'));
-                        
                         await Promise.all(savePromises);
-                        showNotification('Збережено в базу');
                     }
                     
-                    // Оновлюємо UI з новими даними
                     calculateRates();
+                    statusController.set('cache', 'Оновлено!', false);
+                    setTimeout(() => statusController.set('cache'), 2000);
                 } else if (!cachedData) {
-                    // Немає ні API ні кешу - використовуємо статику
                     initStaticRates();
-                    showNotification('Статичні дані');
+                    statusController.set('static', 'Статичні дані', false);
+                } else {
+                    statusController.set('cache', 'Дані з кешу', false);
                 }
 
             } catch (error) {
-                console.error('Update error:', error);
-                showNotification('Помилка оновлення');
+                statusController.set('error', 'Помилка', false);
             } finally {
                 finishUpdate();
             }
@@ -874,10 +1016,6 @@
             const btn = document.getElementById('refresh-btn');
             btn.disabled = false;
             btn.classList.remove('updating');
-            btn.textContent = 'Оновити курси';
-            
-            const now = new Date();
-            document.getElementById('last-updated').textContent = `Оновлено: ${now.toLocaleTimeString()}`;
         }
 
         function initStaticRates() {
@@ -894,7 +1032,7 @@
             calculateRates();
         }
 
-        // UI функції
+        // Calculator functions
         function updateDisplay() {
             document.getElementById('display').textContent = currentDisplay;
             const toggleBtn = document.getElementById('currency-toggle');
@@ -974,7 +1112,7 @@
                 document.getElementById('amount-title').textContent = `${amount.toFixed(2)} ${currencyNames[currentCurrency]} =`;
                 
                 const resultsDiv = document.getElementById('results');
-                const timeStr = new Date().toLocaleTimeString();
+                const timeStr = new Date().toLocaleTimeString('uk-UA', {hour: '2-digit', minute:'2-digit'});
                 
                 let html = '';
                 
@@ -982,7 +1120,7 @@
                 html += `
                     <div class="bank-card monobank-card ${!monobankAvailable ? 'error' : ''}">
                         <div class="bank-header">
-                            <div class="bank-logo ${!monobankAvailable ? 'error-logo' : 'monobank-logo'}">M</div>
+                            <div class="bank-logo ${!monobankAvailable ? 'error-logo' : ''}">M</div>
                             <div>Monobank ${!monobankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${monobankAvailable ? generateRows('monobank', amount) : generateError()}
@@ -993,7 +1131,7 @@
                 html += `
                     <div class="bank-card privatbank-card ${!privatbankAvailable ? 'error' : ''}">
                         <div class="bank-header">
-                            <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : 'privatbank-logo'}">П</div>
+                            <div class="bank-logo ${!privatbankAvailable ? 'error-logo' : ''}">П</div>
                             <div>ПриватБанк <span class="cashless-message">картки</span> ${!privatbankAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
                         </div>
                         ${privatbankAvailable ? generateRows('privatbank', amount) : generateError()}
@@ -1003,7 +1141,7 @@
                 html += `
                     <div class="bank-card raiffeisen-card">
                         <div class="bank-header">
-                            <div class="bank-logo raiffeisen-logo">Р</div>
+                            <div class="bank-logo">Р</div>
                             <div>Райффайзен <span class="static-data-message">(статика)</span></div>
                         </div>
                         ${generateRows('raiffeisen', amount)}
@@ -1013,7 +1151,7 @@
                 html += `
                     <div class="bank-card ukreximbank-card">
                         <div class="bank-header">
-                            <div class="bank-logo ukreximbank-logo">У</div>
+                            <div class="bank-logo">У</div>
                             <div>Укрексімбанк <span class="static-data-message">(статика)</span></div>
                         </div>
                         ${generateRows('ukreximbank', amount)}
@@ -1047,7 +1185,7 @@
         }
         
         function generateError() {
-            return `<div class="error-message">API недоступне</div><div class="static-data-message">Використовуються статичні дані</div>`;
+            return `<div class="error-message">Не вдалося завантажити актуальні курси</div><div class="static-data-message">Використовуються статичні дані</div>`;
         }
 
         // Global exports
@@ -1067,26 +1205,25 @@
             
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
-            // Перше завантаження - тільки з RTDB, без API
+            // Initial load
             loadFromRTDBCache().then(data => {
                 if (data) {
                     handleRatesUpdate(data, false);
-                    document.getElementById('last-updated').textContent = 'Завантажено з кешу';
+                    statusController.set('cache', 'З кешу', false);
                 } else {
                     initStaticRates();
-                    document.getElementById('last-updated').textContent = 'Статичні дані';
+                    statusController.set('static', 'Статика', false);
                 }
                 setupRealtimeListener();
             });
             
-            // Автооновлення кожні 10 хвилин (тільки якщо не оновлювалися вручну)
+            // Auto update check
             setInterval(() => {
                 const now = Date.now();
-                if (now - lastUpdateTime > 10 * 60 * 1000) {
-                    console.log('Auto update triggered');
+                if (now - lastUpdateTime > 10 * 60 * 1000 && !isUpdating) {
                     loadExchangeRates(false);
                 }
-            }, 60000); // перевірка кожну хвилину
+            }, 60000);
         });
     </script>
 </body>
