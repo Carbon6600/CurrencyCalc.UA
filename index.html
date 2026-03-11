@@ -728,21 +728,30 @@
             return new Date().toISOString().split('T')[0];
         }
 
+        // Покращена функція автентифікації
         async function initAuth() {
             return new Promise(async (resolve) => {
-                const timeout = setTimeout(() => resolve(false), 5000);
+                const timeout = setTimeout(() => {
+                    console.log('Автентифікація: таймаут');
+                    resolve(false);
+                }, 5000);
+                
                 try {
                     if (isAuthenticated && currentUser) {
                         clearTimeout(timeout);
                         resolve(true);
                         return;
                     }
+                    
+                    console.log('Спроба анонімної автентифікації...');
                     const userCredential = await signInAnonymously(auth);
                     currentUser = userCredential.user;
                     isAuthenticated = true;
+                    console.log('Автентифікація успішна:', currentUser.uid);
                     clearTimeout(timeout);
                     resolve(true);
                 } catch (error) {
+                    console.error('Помилка автентифікації:', error);
                     clearTimeout(timeout);
                     resolve(false);
                 }
@@ -753,11 +762,23 @@
             if (user) {
                 currentUser = user;
                 isAuthenticated = true;
+                console.log('Стан автентифікації змінено: увійшов', user.uid);
+                
+                // Після автентифікації налаштовуємо слухач
+                setupRealtimeListener();
+            } else {
+                isAuthenticated = false;
+                currentUser = null;
+                console.log('Стан автентифікації: вийшов');
             }
         });
 
         async function saveRatesToRTDB(rates, source) {
-            if (!isAuthenticated) return false;
+            if (!isAuthenticated) {
+                const authSuccess = await initAuth();
+                if (!authSuccess) return false;
+            }
+            
             try {
                 const today = getTodayDate();
                 const ratesRef = ref(db, `exchangeRates/${today}/${source}`);
@@ -767,31 +788,68 @@
                     date: today,
                     source: source
                 });
+                console.log(`Дані ${source} збережено в RTDB`);
                 return true;
             } catch (error) {
+                console.error('Помилка збереження в RTDB:', error);
                 return false;
             }
         }
 
         async function loadFromRTDBCache() {
+            // Спочатку перевіряємо/отримуємо автентифікацію
+            if (!isAuthenticated) {
+                console.log('Немає автентифікації, пробуємо отримати...');
+                const authSuccess = await initAuth();
+                if (!authSuccess) {
+                    console.log('Не вдалося автентифікуватись');
+                    return null;
+                }
+            }
+            
             try {
                 const today = getTodayDate();
                 const ratesRef = ref(db, `exchangeRates/${today}`);
+                console.log('Читання кешу з RTDB...');
                 const snapshot = await get(ratesRef);
-                return snapshot.exists() ? snapshot.val() : null;
+                
+                if (snapshot.exists()) {
+                    console.log('Знайдено дані в кеші');
+                    return snapshot.val();
+                } else {
+                    console.log('Немає даних в кеші');
+                    return null;
+                }
             } catch (error) {
+                console.error('Помилка читання кешу:', error);
                 return null;
             }
         }
 
         function setupRealtimeListener() {
-            if (rtdbListener) rtdbListener();
+            // Видаляємо попередній слухач
+            if (rtdbListener) {
+                rtdbListener();
+                rtdbListener = null;
+            }
+            
+            // Перевіряємо чи є автентифікація
+            if (!isAuthenticated) {
+                console.log('Очікування автентифікації для слухача...');
+                return;
+            }
+            
+            console.log('Налаштування слухача Realtime Database...');
             const today = getTodayDate();
             const ratesRef = ref(db, `exchangeRates/${today}`);
+            
             rtdbListener = onValue(ratesRef, (snapshot) => {
                 if (snapshot.exists()) {
+                    console.log('Отримано оновлення з RTDB');
                     handleRatesUpdate(snapshot.val(), true);
                 }
+            }, (error) => {
+                console.error('Помилка слухача RTDB:', error);
             });
         }
 
@@ -999,6 +1057,7 @@
                 }
 
             } catch (error) {
+                console.error('Помилка завантаження:', error);
                 statusController.set('error', 'Помилка', false);
             } finally {
                 finishUpdate();
@@ -1197,7 +1256,7 @@
         window.plusMinus = plusMinus;
         window.calculate = calculate;
 
-        // Init
+        // Оновлена ініціалізація
         document.addEventListener('DOMContentLoaded', () => {
             currentDisplay = '1';
             currentCurrency = 'USD';
@@ -1205,16 +1264,33 @@
             
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
-            // Initial load
-            loadFromRTDBCache().then(data => {
-                if (data) {
-                    handleRatesUpdate(data, false);
-                    statusController.set('cache', 'З кешу', false);
+            // Спочатку автентифікуємось, потім завантажуємо дані
+            statusController.set('cloud', 'Авторизація...', true);
+            
+            initAuth().then((success) => {
+                if (success) {
+                    console.log('Автентифікація пройдена, завантажуємо дані...');
+                    statusController.updateSubtitle('Завантаження...');
+                    
+                    // Завантажуємо дані після автентифікації
+                    loadFromRTDBCache().then(data => {
+                        if (data) {
+                            console.log('Завантажено дані з кешу');
+                            handleRatesUpdate(data, false);
+                            statusController.set('cache', 'З кешу', false);
+                        } else {
+                            console.log('Кеш порожній, використовуємо статику');
+                            initStaticRates();
+                            statusController.set('static', 'Статика', false);
+                        }
+                        
+                        // Слухач налаштується автоматично в onAuthStateChanged
+                    });
                 } else {
+                    console.log('Автентифікація не вдалась, автономний режим');
                     initStaticRates();
-                    statusController.set('static', 'Статика', false);
+                    statusController.set('static', 'Автономний режим', false);
                 }
-                setupRealtimeListener();
             });
             
             // Auto update check
