@@ -641,6 +641,7 @@
         let currentUser = null;
         let isUpdating = false;
         let updateTimeout = null;
+        let initialLoadComplete = false; // Новий прапорець
 
         // Compact UX Status Controller
         const statusController = {
@@ -847,6 +848,11 @@
                 if (snapshot.exists()) {
                     console.log('Отримано оновлення з RTDB');
                     handleRatesUpdate(snapshot.val(), true);
+                    
+                    // Якщо це перше завантаження, позначаємо що завершено
+                    if (!initialLoadComplete) {
+                        initialLoadComplete = true;
+                    }
                 }
             }, (error) => {
                 console.error('Помилка слухача RTDB:', error);
@@ -1256,7 +1262,7 @@
         window.plusMinus = plusMinus;
         window.calculate = calculate;
 
-        // Оновлена ініціалізація
+        // Оновлена ініціалізація - одразу завантажуємо актуальні курси
         document.addEventListener('DOMContentLoaded', () => {
             currentDisplay = '1';
             currentCurrency = 'USD';
@@ -1264,34 +1270,11 @@
             
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
-            // Спочатку автентифікуємось, потім завантажуємо дані
-            statusController.set('cloud', 'Авторизація...', true);
+            // Відразу показуємо завантаження
+            statusController.set('cloud', 'Завантаження курсів...', true);
             
-            initAuth().then((success) => {
-                if (success) {
-                    console.log('Автентифікація пройдена, завантажуємо дані...');
-                    statusController.updateSubtitle('Завантаження...');
-                    
-                    // Завантажуємо дані після автентифікації
-                    loadFromRTDBCache().then(data => {
-                        if (data) {
-                            console.log('Завантажено дані з кешу');
-                            handleRatesUpdate(data, false);
-                            statusController.set('cache', 'З кешу', false);
-                        } else {
-                            console.log('Кеш порожній, використовуємо статику');
-                            initStaticRates();
-                            statusController.set('static', 'Статика', false);
-                        }
-                        
-                        // Слухач налаштується автоматично в onAuthStateChanged
-                    });
-                } else {
-                    console.log('Автентифікація не вдалась, автономний режим');
-                    initStaticRates();
-                    statusController.set('static', 'Автономний режим', false);
-                }
-            });
+            // Запускаємо завантаження курсів одразу
+            loadExchangeRates(true);
             
             // Auto update check
             setInterval(() => {
