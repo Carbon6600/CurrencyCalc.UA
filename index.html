@@ -641,7 +641,7 @@
         let currentUser = null;
         let isUpdating = false;
         let updateTimeout = null;
-        let initialLoadComplete = false; // Новий прапорець
+        let initialLoadComplete = false;
 
         // Compact UX Status Controller
         const statusController = {
@@ -729,7 +729,6 @@
             return new Date().toISOString().split('T')[0];
         }
 
-        // Покращена функція автентифікації
         async function initAuth() {
             return new Promise(async (resolve) => {
                 const timeout = setTimeout(() => {
@@ -764,8 +763,6 @@
                 currentUser = user;
                 isAuthenticated = true;
                 console.log('Стан автентифікації змінено: увійшов', user.uid);
-                
-                // Після автентифікації налаштовуємо слухач
                 setupRealtimeListener();
             } else {
                 isAuthenticated = false;
@@ -798,7 +795,6 @@
         }
 
         async function loadFromRTDBCache() {
-            // Спочатку перевіряємо/отримуємо автентифікацію
             if (!isAuthenticated) {
                 console.log('Немає автентифікації, пробуємо отримати...');
                 const authSuccess = await initAuth();
@@ -828,13 +824,11 @@
         }
 
         function setupRealtimeListener() {
-            // Видаляємо попередній слухач
             if (rtdbListener) {
                 rtdbListener();
                 rtdbListener = null;
             }
             
-            // Перевіряємо чи є автентифікація
             if (!isAuthenticated) {
                 console.log('Очікування автентифікації для слухача...');
                 return;
@@ -849,7 +843,6 @@
                     console.log('Отримано оновлення з RTDB');
                     handleRatesUpdate(snapshot.val(), true);
                     
-                    // Якщо це перше завантаження, позначаємо що завершено
                     if (!initialLoadComplete) {
                         initialLoadComplete = true;
                     }
@@ -1016,7 +1009,7 @@
             btn.disabled = true;
             btn.classList.add('updating');
             
-            statusController.set('cloud', 'Firebase...', true);
+            statusController.set('cloud', 'Оновлення...', true);
             
             updateTimeout = setTimeout(() => {
                 finishUpdate();
@@ -1027,13 +1020,6 @@
                 if (!isAuthenticated) {
                     statusController.updateSubtitle('Авторизація...');
                     await initAuth();
-                }
-
-                statusController.updateSubtitle('Кеш RTDB...');
-                const cachedData = await loadFromRTDBCache();
-                
-                if (cachedData) {
-                    handleRatesUpdate(cachedData, false);
                 }
 
                 statusController.set('cloud', 'API банків...', true);
@@ -1055,11 +1041,8 @@
                     calculateRates();
                     statusController.set('cache', 'Оновлено!', false);
                     setTimeout(() => statusController.set('cache'), 2000);
-                } else if (!cachedData) {
-                    initStaticRates();
-                    statusController.set('static', 'Статичні дані', false);
                 } else {
-                    statusController.set('cache', 'Дані з кешу', false);
+                    statusController.set('static', 'Не вдалось оновити', false);
                 }
 
             } catch (error) {
@@ -1262,7 +1245,7 @@
         window.plusMinus = plusMinus;
         window.calculate = calculate;
 
-        // Оновлена ініціалізація - одразу завантажуємо актуальні курси
+        // 🌟 ВАРІАНТ 3: Найшвидший - спочатку кеш, потім оновлені курси
         document.addEventListener('DOMContentLoaded', () => {
             currentDisplay = '1';
             currentCurrency = 'USD';
@@ -1270,11 +1253,24 @@
             
             document.getElementById('currency-toggle').addEventListener('click', cycleCurrency);
             
-            // Відразу показуємо завантаження
-            statusController.set('cloud', 'Завантаження курсів...', true);
+            // 🌟 1. МИТТЄВО показуємо кеш (якщо є)
+            statusController.set('cache', 'Завантаження кешу...', true);
             
-            // Запускаємо завантаження курсів одразу
-            loadExchangeRates(true);
+            initAuth().then(() => {
+                loadFromRTDBCache().then(data => {
+                    if (data) {
+                        handleRatesUpdate(data, false);
+                        statusController.set('cache', 'Кеш завантажено', false);
+                    } else {
+                        statusController.set('cloud', 'Очікування...', true);
+                    }
+                });
+            });
+            
+            // 🌟 2. ВІДРАЗУ завантажуємо свіжі курси (через 100мс)
+            setTimeout(() => {
+                loadExchangeRates(true);
+            }, 100);
             
             // Auto update check
             setInterval(() => {
