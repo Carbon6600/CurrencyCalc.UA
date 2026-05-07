@@ -710,6 +710,8 @@
         const SIGNIFICANT_CHANGE_THRESHOLD = 0.005;
         const API_TIMEOUT = 8000;
         const UPDATE_COOLDOWN = 30000;
+        const LOCAL_CACHE_KEY = 'currencycalc-last-rates-v2';
+        const LOCAL_CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
         
         let currentDisplay = '1';
         let currentCurrency = 'USD';
@@ -903,27 +905,102 @@
             ]);
         }
 
-        async function tryProxy(proxyUrl, targetUrl) {
+        function makeProxyChain(targetUrl) {
+            const encodedTarget = encodeURIComponent(targetUrl);
+            const cacheBust = `t=${Date.now()}`;
+
+            return [
+                {
+                    name: 'allorigins-raw',
+                    url: `https://api.allorigins.win/raw?url=${encodedTarget}&${cacheBust}`,
+                    parse: async (response) => response.json()
+                },
+                {
+                    name: 'allorigins-get',
+                    url: `https://api.allorigins.win/get?url=${encodedTarget}&${cacheBust}`,
+                    parse: async (response) => {
+                        const wrapper = await response.json();
+                        if (!wrapper?.contents) throw new Error('Empty allorigins payload');
+                        return JSON.parse(wrapper.contents);
+                    }
+                },
+                {
+                    name: 'corsproxy',
+                    url: `https://corsproxy.io/?${encodedTarget}`,
+                    parse: async (response) => response.json()
+                },
+                {
+                    name: 'codetabs',
+                    url: `https://api.codetabs.com/v1/proxy?quest=${encodedTarget}`,
+                    parse: async (response) => response.json()
+                }
+            ];
+        }
+
+        async function tryProxy(proxy, targetUrl) {
             const response = await fetchWithTimeout(
-                proxyUrl + encodeURIComponent(targetUrl),
-                { headers: { 'X-Requested-With': 'XMLHttpRequest' } },
+                proxy.url,
+                { method: 'GET', mode: 'cors', cache: 'no-store' },
                 API_TIMEOUT
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.json();
+            return await proxy.parse(response, targetUrl);
+        }
+
+        function saveRatesToLocalCache() {
+            try {
+                const payload = {
+                    timestamp: Date.now(),
+                    rates: {
+                        monobank: exchangeRates.monobank,
+                        privatbank: exchangeRates.privatbank
+                    },
+                    available: {
+                        monobank: monobankAvailable,
+                        privatbank: privatbankAvailable
+                    }
+                };
+                localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.warn('Local cache save skipped:', error);
+            }
+        }
+
+        function loadFromLocalCache() {
+            try {
+                const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+                if (!raw) return false;
+
+                const payload = JSON.parse(raw);
+                if (!payload?.timestamp || !payload?.rates) return false;
+
+                const isExpired = Date.now() - payload.timestamp > LOCAL_CACHE_MAX_AGE;
+                if (isExpired) return false;
+
+                if (payload.rates.monobank) {
+                    exchangeRates.monobank = payload.rates.monobank;
+                    monobankAvailable = !!payload.available?.monobank;
+                }
+                if (payload.rates.privatbank) {
+                    exchangeRates.privatbank = payload.rates.privatbank;
+                    privatbankAvailable = !!payload.available?.privatbank;
+                }
+
+                calculateRates();
+                return monobankAvailable || privatbankAvailable;
+            } catch (error) {
+                console.warn('Local cache read failed:', error);
+                return false;
+            }
         }
 
         async function loadMonobankRates() {
-            const proxies = [
-                'https://api.allorigins.win/raw?url=',
-                'https://corsproxy.io/?',
-                'https://cors-anywhere.herokuapp.com/'
-            ];
             const targetUrl = 'https://api.monobank.ua/bank/currency';
+            const proxies = makeProxyChain(targetUrl);
             
             for (const proxy of proxies) {
                 try {
-                    statusController.updateSubtitle('Monobank...');
+                    statusController.updateSubtitle(`Monobank: ${proxy.name}`);
                     const data = await tryProxy(proxy, targetUrl);
                     
                     const usdRate = data.find(r => r.currencyCodeA === 840 && r.currencyCodeB === 980);
@@ -947,6 +1024,7 @@
                     monobankAvailable = true;
                     return true;
                 } catch (error) {
+                    console.warn(`Monobank proxy failed (${proxy.name}):`, error.message);
                     continue;
                 }
             }
@@ -954,16 +1032,12 @@
         }
 
         async function loadPrivatbankRates() {
-            const proxies = [
-                'https://api.allorigins.win/raw?url=',
-                'https://corsproxy.io/?',
-                'https://cors-anywhere.herokuapp.com/'
-            ];
             const targetUrl = 'https://api.privatbank.ua/p24api/pubinfo?exchange&json&coursid=11';
+            const proxies = makeProxyChain(targetUrl);
             
             for (const proxy of proxies) {
                 try {
-                    statusController.updateSubtitle('Privatbank...');
+                    statusController.updateSubtitle(`Privatbank: ${proxy.name}`);
                     const data = await tryProxy(proxy, targetUrl);
                     
                     data.forEach(rate => {
@@ -985,6 +1059,7 @@
                     privatbankAvailable = true;
                     return true;
                 } catch (error) {
+                    console.warn(`Privatbank proxy failed (${proxy.name}):`, error.message);
                     continue;
                 }
             }
@@ -1039,6 +1114,7 @@
                     }
                     
                     calculateRates();
+                    saveRatesToLocalCache();
                     statusController.set('cache', 'Оновлено!', false);
                     setTimeout(() => statusController.set('cache'), 2000);
                 } else {
@@ -1255,6 +1331,10 @@
             
             // 🌟 1. МИТТЄВО показуємо кеш (якщо є)
             statusController.set('cache', 'Завантаження кешу...', true);
+            const hasLocalCache = loadFromLocalCache();
+            if (hasLocalCache) {
+                statusController.set('cache', 'Локальний кеш', false);
+            }
             
             initAuth().then(() => {
                 loadFromRTDBCache().then(data => {
