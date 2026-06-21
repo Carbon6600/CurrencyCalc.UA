@@ -1,0 +1,548 @@
+﻿
+        * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            touch-action: pan-y;
+        }
+        
+        .app-container {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .phone {
+            width: 100%;
+            max-width: 380px;
+            min-height: 740px;
+            background: linear-gradient(145deg, #3a3a3a, #2d2d2d);
+            border-radius: 35px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            color: white;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .phone-brand {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .screen {
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 20px;
+            margin: 40px 0 15px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .input-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .input-display {
+            font-size: 32px;
+            text-align: right;
+            padding: 12px 110px 12px 12px;
+            background-color: #2a2a2a;
+            border-radius: 12px;
+            flex-grow: 1;
+            font-weight: bold;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .currency-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            background-color: #ff9500;
+            color: white;
+            transition: all 0.3s;
+            font-size: 16px;
+            text-align: center;
+            min-width: 60px;
+            box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
+        }
+        
+        .results-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .results-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: scroll;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+            overscroll-behavior: contain;
+            padding-right: 5px;
+        }
+        
+        .results-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .results-container::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 2px;
+        }
+        
+        .results-container::-webkit-scrollbar-thumb {
+            background: #ff9500;
+            border-radius: 2px;
+        }
+        
+        .amount-title {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 8px;
+            padding-left: 4px;
+        }
+        
+        .bank-slider {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-bottom: 10px;
+        }
+        
+        .bank-card {
+            border-radius: 15px;
+            padding: 12px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+            scroll-snap-align: start;
+            height: 140px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s, opacity 0.3s;
+            flex-shrink: 0;
+            touch-action: manipulation;
+        }
+        
+        .bank-card:active {
+            transform: scale(0.98);
+        }
+        
+        .bank-card.updating {
+            opacity: 0.7;
+            animation: pulse 1s infinite;
+        }
+        
+        .monobank-card {
+            background: linear-gradient(135deg, #6f2c91 0%, #8e44ad 100%);
+            border-left: 5px solid #f39c12;
+        }
+        
+        .privatbank-card {
+            background: linear-gradient(135deg, #2e8b57 0%, #27ae60 100%);
+            border-left: 5px solid #f1c40f;
+        }
+        
+        .raiffeisen-card {
+            background: linear-gradient(135deg, #ff6600 0%, #e67e22 100%);
+            border-left: 5px solid #e74c3c;
+        }
+        
+        .ukreximbank-card {
+            background: linear-gradient(135deg, #0057b8 0%, #0070ff 100%);
+            border-left: 5px solid #ffd700;
+        }
+        
+        .bank-card.error {
+            background: #2a2a2a;
+            border-left: 5px solid #ff5555;
+            opacity: 0.7;
+        }
+        
+        .bank-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 6px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .bank-logo {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 13px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            background-color: rgba(255,255,255,0.2);
+            border: 2px solid white;
+        }
+        
+        .error-logo {
+            background-color: rgba(255,85,85,0.3);
+            border: 2px solid #ff5555;
+        }
+        
+        .rate-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+            padding: 3px 0;
+        }
+        
+        .rate-value {
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .update-info {
+            color: #aaa;
+            font-size: 10px;
+            text-align: center;
+            margin-top: 4px;
+        }
+        
+        .static-data-message {
+            color: #ff9500;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 4px;
+            font-style: italic;
+        }
+        
+        .error-message {
+            color: #ff5555;
+            text-align: center;
+            padding: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+        
+        .cashless-message {
+            color: #fff;
+            background-color: rgba(0,0,0,0.2);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-left: 5px;
+        }
+        
+        /* === CONTROLS ROW WITH UX STATUS === */
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+            min-height: 45px;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            padding: 10px 14px;
+            font-size: 12px;
+            border: none;
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:disabled {
+            background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .refresh-btn.updating {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            animation: pulse 1s infinite;
+        }
+
+        /* === COMPACT UX STATUS === */
+        .ux-status-compact {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .status-pill {
+            background: linear-gradient(135deg, #2a2a2a 0%, #1f1f1f 100%);
+            border-radius: 20px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-pill::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, currentColor, transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .status-pill.active::before {
+            opacity: 1;
+            animation: scanline 2s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .status-icon-compact {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .cloud-icon-compact {
+            width: 16px;
+            height: 16px;
+        }
+
+        .cloud-base {
+            fill: currentColor;
+        }
+
+        .status-pill.loading .cloud-icon-compact {
+            animation: float 2s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
+        .sync-ring {
+            position: absolute;
+            inset: -2px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            opacity: 0;
+        }
+
+        .status-pill.loading .sync-ring {
+            opacity: 1;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-text-compact {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .status-title-compact {
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+
+        .status-subtitle-compact {
+            color: #888;
+            font-size: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .live-dot {
+            width: 5px;
+            height: 5px;
+            background: currentColor;
+            border-radius: 50%;
+            animation: pulse-dot 1.5s ease infinite;
+            box-shadow: 0 0 5px currentColor;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* Status colors */
+        .status-cloud {
+            color: #3498db;
+        }
+
+        .status-cloud .status-icon-compact {
+            background: rgba(52, 152, 219, 0.15);
+        }
+
+        .status-cache {
+            color: #27ae60;
+        }
+
+        .status-cache .status-icon-compact {
+            background: rgba(39, 174, 96, 0.15);
+        }
+
+        .status-static {
+            color: #f39c12;
+        }
+
+        .status-static .status-icon-compact {
+            background: rgba(243, 156, 18, 0.15);
+        }
+
+        .status-error {
+            color: #e74c3c;
+        }
+
+        .status-error .status-icon-compact {
+            background: rgba(231, 76, 60, 0.15);
+        }
+
+        .status-offline {
+            color: #95a5a6;
+        }
+
+        .status-offline .status-icon-compact {
+            background: rgba(149, 165, 166, 0.15);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #ff9500;
+            animation: pulse 1.5s infinite;
+            font-size: 14px;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 14px 0;
+            font-size: 18px;
+            border: none;
+            border-radius: 12px;
+            background-color: #444;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+            -webkit-touch-callout: none;
+        }
+        
+        button:active {
+            transform: translateY(1px);
+            opacity: 0.9;
+        }
+        
+        button.operator {
+            background-color: #ff9500;
+        }
+        
+        button.clear {
+            background-color: #a5a5a5;
+            color: black;
+        }
+        
+        button.plus-minus {
+            background-color: #555;
+        }
+
+        @media (max-height: 700px) {
+            .phone {
+                min-height: 680px;
+            }
+            .bank-card {
+                height: 135px;
+                padding: 10px;
+            }
+            .keypad button {
+                padding: 12px 0;
+                font-size: 16px;
+            }
+        }
+    
