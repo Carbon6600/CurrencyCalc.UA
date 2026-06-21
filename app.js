@@ -94,6 +94,7 @@ let currentCurrency = 'USD';
 let exchangeRates = {
     privatbank: { USD: {}, EUR: {} },
     monobank: { USD: {}, EUR: {} },
+    nbu: { usd: null, pln: null },
     raiffeisen: { USD: { buy: 37.15, sell: 38.45 }, EUR: { buy: 40.05, sell: 41.35 } },
     ukreximbank: { USD: { buy: 37.10, sell: 38.30 }, EUR: { buy: 40.00, sell: 41.20 } }
 };
@@ -185,6 +186,14 @@ function handleRatesUpdate(data, isRealtime = false) {
         if (hasSignificantChange(oldRates.monobank, data.monobank)) changed = true;
         exchangeRates.monobank = data.monobank;
         monobankAvailable = true;
+    }
+
+    if (data.nbu) {
+        exchangeRates.nbu = data.nbu;
+    }
+
+    if (data.nbu) {
+        exchangeRates.nbu = data.nbu;
     }
     
     calculateRates();
@@ -403,6 +412,19 @@ function calculateRates() {
                 </div>
                 ${generateRows('ukreximbank', amount)}
             </div>`;
+
+        // NBU Card
+        const nbu = exchangeRates.nbu;
+        const nbuAvailable = nbu.usd || nbu.pln;
+        html += `
+            <div class="bank-card nbu-card ${!nbuAvailable ? 'error' : ''}">
+                <div class="bank-header">
+                    <div class="bank-logo ${!nbuAvailable ? 'error-logo' : ''}">Н</div>
+                    <div>Нацбанк України ${!nbuAvailable ? '<span class="static-data-message">(статика)</span>' : ''}</div>
+                </div>
+                ${nbuAvailable ? generateNBURows(amount) : generateError()}
+            </div>`;
+
         resultsDiv.innerHTML = html;
     } catch (error) {
         console.error('Calculate error:', error);
@@ -425,6 +447,31 @@ function generateRows(bank, amount) {
             <div class="rate-row"><span>UAH купівля:</span><span class="rate-value">${(amount * exchangeRates[bank][curr].buy).toFixed(2)} ₴</span></div>
             <div class="rate-row"><span>UAH продаж:</span><span class="rate-value">${(amount * exchangeRates[bank][curr].sell).toFixed(2)} ₴</span></div>
             <div class="rate-row"><span>${other}:</span><span class="rate-value">${(amount * crossRate).toFixed(2)} ${currencySymbols[other]}</span></div>`;
+    }
+}
+
+function generateNBURows(amount) {
+    const nbu = exchangeRates.nbu;
+    if (!nbu.usd && !nbu.pln) return generateError();
+
+    if (currentCurrency === 'UAH') {
+        return `
+            <div class="rate-row"><span>USD офіційний:</span><span class="rate-value">${nbu.usd ? (amount / nbu.usd).toFixed(2) + ' $' : 'Н/Д'}</span></div>
+            <div class="rate-row"><span>PLN офіційний:</span><span class="rate-value">${nbu.pln ? (amount / nbu.pln).toFixed(2) + ' zł' : 'Н/Д'}</span></div>`;
+    } else {
+        const curr = currentCurrency;
+        if (curr === 'USD') {
+            return `
+                <div class="rate-row"><span>UAH офіційний:</span><span class="rate-value">${nbu.usd ? (amount * nbu.usd).toFixed(2) + ' ₴' : 'Н/Д'}</span></div>
+                <div class="rate-row"><span>PLN офіційний:</span><span class="rate-value">${(nbu.usd && nbu.pln) ? (amount * (nbu.pln / nbu.usd)).toFixed(2) + ' zł' : 'Н/Д'}</span></div>`;
+        } else if (curr === 'EUR') {
+            // NBU EUR is not currently fetched by Worker, but we can show USD/PLN cross if needed
+            return `
+                <div class="rate-row"><span>USD офіційний:</span><span class="rate-value">Н/Д</span></div>
+                <div class="rate-row"><span>PLN офіційний:</span><span class="rate-value">Н/Д</span></div>
+                <div class="error-message" style="font-size: 9px">Курс EUR НБУ не налаштовано</div>`;
+        }
+        return generateError();
     }
 }
 
